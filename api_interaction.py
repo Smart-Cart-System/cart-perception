@@ -4,7 +4,7 @@ import os
 
 def send_barcode_to_server(barcode, cart_id, user_id):
     """Send barcode data to the server and process the response."""
-    # Replace with your API URL
+
     api_url = os.getenv("API_URL", "http://127.0.0.1:8000/products/scan-barcode")
 
     # Prepare the barcode data
@@ -25,3 +25,7 @@ def send_barcode_to_server(barcode, cart_id, user_id):
         print(f"Added {product_data['description']} to cart")
     else:
         print(f"Error {response.status_code}: {response.text}")
+
+
+if __name__ == "__main__":
+    send_barcode_to_server("6223000110324", "cart123", 1)

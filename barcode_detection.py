@@ -4,7 +4,7 @@ from pyzbar.pyzbar import decode
 from preprocessing import preprocess_image
 
 # Load the YOLO model
-model = YOLO('YOLO8n10-best.pt')
+model = YOLO('models/YOLO8n10-best.pt')
 
 # Dictionary to store barcode occurrences
 barcode_counts = {}
