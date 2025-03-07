@@ -13,6 +13,7 @@ def main():
     
     set_camera_properties(cap)
     focus_value = 400
+    last_barcode_number = None
 
     while True:
         ret, frame = cap.read()
@@ -21,8 +22,9 @@ def main():
             break
         
         barcode_number = detect_barcode(frame)
-        if barcode_number:
+        if barcode_number and barcode_number != last_barcode_number:
             send_barcode_to_server(barcode_number, "cart123", 1)
+            last_barcode_number = barcode_number
         
         cv2.imshow('Camera Preview', frame)
 
