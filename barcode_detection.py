@@ -20,7 +20,7 @@ def read_barcode_pyzbar(cropped_image):
 
 def detect_barcode(image):
     """Detect barcode using YOLO, enlarge bounding box width, and track occurrences."""
-    cropped_image = yolo_inference(image)
+    # cropped_image = yolo_inference(image)
     # processed_image = preprocess_image(cropped_image)
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -37,4 +37,4 @@ def detect_barcode(image):
             print(f"Confirmed Barcode: {barcode_number}")
             barcode_counts[barcode_number] = 0
 
-    return barcode_number
+    return int(barcode_number) if barcode_number else None
