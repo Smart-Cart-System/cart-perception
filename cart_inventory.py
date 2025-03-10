@@ -6,8 +6,8 @@ class CartInventory:
         self.items = {}  # {barcode: {"weight": weight_per_unit, "quantity": count}}
         self.last_scanned_barcode = None
         self.pending_weight_change = False
-        self.weight_match_threshold = weight_match_threshold  # 10% threshold for weight matching
-        self.total_expected_weight = 0  # Track the total expected weight of items
+        self.weight_match_threshold = weight_match_threshold  # 10% threshold for weight matching (in 4 load cells will be different)
+        self.total_expected_weight = 0  # Track the total expected weight of items (in 4 load cells will be different)
         
     def add_item(self, barcode, weight):
         """Add an item to the cart inventory."""
