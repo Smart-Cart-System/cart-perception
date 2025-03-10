@@ -47,6 +47,10 @@ def main():
             barcode_number = detect_barcode(frame)
             current_time = time.time()
             
+            # Print last barcode once if changed
+            if barcode_number and barcode_number != cart.last_scanned_barcode:
+                print(f"Last scanned barcode: {barcode_number}")
+
             # Handle barcode detection
             if barcode_number:
                 if waiting_for_scan:

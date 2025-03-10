@@ -27,7 +27,7 @@ def detect_barcode(image):
 
     # Read barcode from preprocessed & raw cropped image
     barcode_number = read_barcode_pyzbar(image) or read_barcode_pyzbar(gray) 
-    print(f"Detected Barcode: {barcode_number}")
+    # print(f"Detected Barcode: {barcode_number}")
     if barcode_number:
         # Update occurrence count
         barcode_counts[barcode_number] = barcode_counts.get(barcode_number, 0) + 1
