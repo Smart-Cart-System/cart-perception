@@ -136,6 +136,7 @@ def main():
                             else:
                                 # Start waiting for scan
                                 API.report_fraud_warning(Ambigous.ADDED)
+                                buzzer.error_occurred()  # Play error sound
                                 waiting_for_scan = True
                                 unscanned_weight = weight_diff
                             
@@ -164,6 +165,7 @@ def main():
                                     print(f"Removed item: {barcode}, weight: {item_data['weight']:.2f}g")
                                     cart.remove_item(barcode)
                                     API.remove_item_from_cart(barcode)
+                                    buzzer.item_removed()  # Play item removed sound
                                 elif len(matches) > 1:
                                     print(f"Ambiguous removal: {len(matches)} items match the weight {abs(weight_diff):.2f}g")
                                     print("Please scan the barcode of the removed item")

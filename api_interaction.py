@@ -9,6 +9,10 @@ class Ambigous(Enum):
     """Enum for ambigous added and removed items."""
     ADDED = "weight increased"
     REMOVED = "weight decreased"
+    
+    def __str__(self):
+        return self.value
+
 class CartAPI:
     def __init__(self, api_url=API_URL, cart_id=None):
         self.api_url = api_url
@@ -166,7 +170,7 @@ class CartAPI:
             # Prepare request data
             warning_data = {
                 "session_id": int(self.session_id),
-                "type_of_warning": warning_type
+                "type_of_warning": str(warning_type)
             }
             
             # Make API request
