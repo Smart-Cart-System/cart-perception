@@ -5,7 +5,7 @@ import RPi.GPIO as GPIO
 
 from camera import set_camera_properties
 from barcode_detection import detect_barcode
-from api_interaction import send_barcode_to_server
+from api_interaction import CartAPI
 from weight_tracking import WeightTracker
 from cart_inventory import CartInventory
 
@@ -24,6 +24,7 @@ def main():
         # Initialize weight tracking system
         weight_tracker = WeightTracker()
         cart = CartInventory()
+        API = CartAPI(cart_id=1)
         
         last_weight_check = time.time()
         last_cart_summary = time.time()
@@ -48,8 +49,8 @@ def main():
             current_time = time.time()
             
             # Print last barcode once if changed
-            if barcode_number and barcode_number != cart.last_scanned_barcode:
-                print(f"Last scanned barcode: {barcode_number}")
+            # if barcode_number and barcode_number != cart.last_scanned_barcode:
+            #     print(f"Last scanned barcode: {barcode_number}")
 
             # Handle barcode detection
             if barcode_number:
@@ -57,6 +58,7 @@ def main():
                     # Case 1: Scan after weight addition (unscanned item)
                     print(f"Barcode scanned after weight addition: {barcode_number}")
                     cart.add_item(barcode_number, unscanned_weight)
+                    API.add_item_to_cart(barcode_number, unscanned_weight)
                     waiting_for_scan = False
                     unscanned_weight = 0
                 elif waiting_for_removal_scan:
@@ -66,6 +68,7 @@ def main():
                         if barcode_number == candidate_barcode:
                             print(f"Confirmed removal of item: {barcode_number}")
                             cart.remove_item(barcode_number)
+                            API.remove_item_from_cart(barcode_number)
                             found = True
                             break
                     
@@ -79,7 +82,7 @@ def main():
                 elif barcode_number != cart.last_scanned_barcode:
                     # Case 3: Normal barcode scan for addition
                     print(f"New barcode detected: {barcode_number}")
-                    send_barcode_to_server(barcode_number, "cart123", 1)
+                    API.read_item(barcode_number)
                     cart.set_pending_barcode(barcode_number)
             
             # Check weight changes periodically
@@ -110,7 +113,8 @@ def main():
                         # Case 1: Weight increase with pending barcode (adding product)
                         if weight_diff > 0 and cart.pending_weight_change and cart.last_scanned_barcode:
                             cart.add_item(cart.last_scanned_barcode, weight_diff)
-                        
+                            API.add_item_to_cart(cart.last_scanned_barcode, weight_diff)
+
                         # Case 2: Weight increase without pending barcode (unknown addition)
                         elif weight_diff > 0:
                             # Check if we're already waiting for a scan
@@ -144,6 +148,7 @@ def main():
                                     barcode, item_data = matches[0]
                                     print(f"Removed item: {barcode}, weight: {item_data['weight']:.2f}g")
                                     cart.remove_item(barcode)
+                                    API.remove_item_from_cart(barcode)
                                 elif len(matches) > 1:
                                     print(f"Ambiguous removal: {len(matches)} items match the weight {abs(weight_diff):.2f}g")
                                     print("Please scan the barcode of the removed item")
