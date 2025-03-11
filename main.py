@@ -5,9 +5,10 @@ import RPi.GPIO as GPIO
 
 from camera import set_camera_properties
 from barcode_detection import detect_barcode
-from api_interaction import CartAPI
+from api_interaction import CartAPI, Ambigous
 from weight_tracking import WeightTracker
 from cart_inventory import CartInventory
+from buzzer import BuzzerUtil
 
 def main():
     """Main function to integrate barcode detection with weight tracking."""
@@ -19,6 +20,9 @@ def main():
     
     set_camera_properties(cap)
     focus_value = 400
+    
+    # Initialize buzzer
+    buzzer = BuzzerUtil()
     
     try:
         # Initialize weight tracking system
@@ -53,6 +57,9 @@ def main():
             #     print(f"Last scanned barcode: {barcode_number}")
 
             # Handle barcode detection
+            if barcode_number and barcode_number != cart.last_scanned_barcode:
+                buzzer.item_scanned()  # Play scan sound
+                
             if barcode_number:
                 if waiting_for_scan:
                     # Case 1: Scan after weight addition (unscanned item)
@@ -61,6 +68,7 @@ def main():
                     API.add_item_to_cart(barcode_number, unscanned_weight)
                     waiting_for_scan = False
                     unscanned_weight = 0
+                    buzzer.item_added()  # Play item added sound
                 elif waiting_for_removal_scan:
                     # Case 2: Scan after ambiguous item removal
                     found = False
@@ -73,9 +81,11 @@ def main():
                             break
                     
                     if found:
+                        buzzer.item_removed()  # Play item removed sound
                         waiting_for_removal_scan = False
                         removal_candidates = []
                     else:
+                        buzzer.error_occurred()  # Play error sound
                         print(f"Warning: Scanned barcode {barcode_number} does not match any removal candidates")
                         print(f"Valid candidates are: {[b for b, _ in removal_candidates]}")
                         print("Please scan the correct barcode of the removed item")
@@ -98,6 +108,7 @@ def main():
                     if abs(current_actual_weight - expected_weight_before_removal) < tolerance:
                         print("Weight returned to normal, item was likely put back")
                         print("Cancelling removal wait")
+                        API.cancel_warning()
                         waiting_for_removal_scan = False
                         removal_candidates = []
                         continue  # Skip the normal weight processing
@@ -114,6 +125,7 @@ def main():
                         if weight_diff > 0 and cart.pending_weight_change and cart.last_scanned_barcode:
                             cart.add_item(cart.last_scanned_barcode, weight_diff)
                             API.add_item_to_cart(cart.last_scanned_barcode, weight_diff)
+                            buzzer.item_added()  # Play item added sound
 
                         # Case 2: Weight increase without pending barcode (unknown addition)
                         elif weight_diff > 0:
@@ -123,6 +135,7 @@ def main():
                                 unscanned_weight += weight_diff
                             else:
                                 # Start waiting for scan
+                                API.report_fraud_warning(Ambigous.ADDED)
                                 waiting_for_scan = True
                                 unscanned_weight = weight_diff
                             
@@ -138,8 +151,10 @@ def main():
                                 expected_weight = cart.total_expected_weight
                                 if abs(current_actual_weight - expected_weight) < 10:  # 10g tolerance
                                     print("Weight returned to normal, cancelling scan request")
+                                    API.cancel_warning()
                                     waiting_for_scan = False
                                     unscanned_weight = 0
+                                    API.cancel_warning()
                             else:
                                 # Normal item removal process
                                 matches = cart.find_removed_item(weight_diff)
@@ -155,10 +170,12 @@ def main():
                                     print("Possible matches:", [b for b, _ in matches])
                                     
                                     # Enter waiting for removal scan state
+                                    API.report_fraud_warning(Ambigous.REMOVED)
                                     waiting_for_removal_scan = True
                                     removal_candidates = matches
                                     removal_weight_diff = weight_diff
                                     expected_weight_before_removal = current_actual_weight - weight_diff
+                                    buzzer.ambiguous_removal()  # Play once when entering this state
                                 else:
                                     print(f"Unknown item removed with weight {abs(weight_diff):.2f}g")
                     
@@ -167,6 +184,7 @@ def main():
                         expected_weight = cart.total_expected_weight
                         if abs(current_actual_weight - expected_weight) < 10:  # 10g tolerance
                             print("Weight returned to normal, cancelling scan request")
+                            API.cancel_warning()
                             waiting_for_scan = False
                             unscanned_weight = 0
                 
@@ -228,14 +246,17 @@ def main():
             elif key == ord('r') and waiting_for_removal_scan:
                 # Cancel removal scan wait state
                 print("Removal scan cancelled by user")
+                API.cancel_warning()
                 waiting_for_removal_scan = False
                 removal_candidates = []
     
     except Exception as e:
+        buzzer.error_occurred()  # Signal error with sound
         print(f"[ERROR] An unexpected error occurred: {e}")
     
     finally:
         # Cleanup
+        buzzer.cleanup()  # Clean up buzzer
         cap.release()
         cv2.destroyAllWindows()
         try:

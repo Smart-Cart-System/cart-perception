@@ -1,9 +1,14 @@
 import requests
 import json
+from enum import Enum
 import os
 
 API_URL = "https://duckycart.me"  # Change to your server address
 
+class Ambigous(Enum):
+    """Enum for ambigous added and removed items."""
+    ADDED = "weight increased"
+    REMOVED = "weight decreased"
 class CartAPI:
     def __init__(self, api_url=API_URL, cart_id=None):
         self.api_url = api_url
@@ -145,6 +150,69 @@ class CartAPI:
                     if result['item'].get('product'):
                         print(f"  Product: {result['item']['product']['description']}")
                 
+                return result
+            else:
+                print(f"Error: {response.status_code}")
+                print(response.text)
+                return None
+                
+        except Exception as e:
+            print(f"Error: {str(e)}")
+            return None
+
+    def report_fraud_warning(self, warning_type):
+        """Report a fraud warning"""
+        try:
+            # Prepare request data
+            warning_data = {
+                "session_id": int(self.session_id),
+                "type_of_warning": warning_type
+            }
+            
+            # Make API request
+            url = f"{self.api_url}/fraud-warnings/"
+            print(f"Reporting fraud warning to {url}")
+            print(f"Warning type: {warning_type}")
+            
+            response = requests.post(url, json=warning_data)
+            
+            # Process response
+            if response.status_code == 200:
+                warning_data = response.json()
+                print(f"Success! Warning reported (ID: {warning_data['id']})")
+                return warning_data
+            else:
+                print(f"Error: {response.status_code}")
+                print(response.text)
+                return None
+                
+        except Exception as e:
+            print(f"Error: {str(e)}")
+            return None
+
+    def cancel_warning(self, barcode=0):
+        """Test sending a cart-update notification via WebSocket"""
+        try:
+            # Prepare request data
+            notification_data = {
+                "session_id": int(self.session_id),
+                "barcode": int(barcode)
+            }
+            
+            # Make API request
+            url = f"{self.api_url}/fraud-warnings/notify-cart-update"
+            print(f"Sending POST request to {url}")
+            print(f"Request data: {json.dumps(notification_data, indent=2)}")
+            
+            response = requests.post(url, json=notification_data)
+            
+            # Process response
+            if response.status_code == 200:
+                result = response.json()
+                print(f"Success! {result['message']}")
+                print(f"WebSocket notification sent to session ID: {self.session_id}")
+                print(f"Message type: cart-updated")
+                print(f"Barcode: {barcode}")
                 return result
             else:
                 print(f"Error: {response.status_code}")
