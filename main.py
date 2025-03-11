@@ -64,8 +64,8 @@ def main():
                 if waiting_for_scan:
                     # Case 1: Scan after weight addition (unscanned item)
                     print(f"Barcode scanned after weight addition: {barcode_number}")
-                    cart.add_item(barcode_number, unscanned_weight)
                     API.add_item_to_cart(barcode_number, unscanned_weight)
+                    cart.add_item(barcode_number, unscanned_weight)
                     waiting_for_scan = False
                     unscanned_weight = 0
                     buzzer.item_added()  # Play item added sound
@@ -75,8 +75,8 @@ def main():
                     for candidate_barcode, _ in removal_candidates:
                         if barcode_number == candidate_barcode:
                             print(f"Confirmed removal of item: {barcode_number}")
-                            cart.remove_item(barcode_number)
                             API.remove_item_from_cart(barcode_number)
+                            cart.remove_item(barcode_number)
                             found = True
                             break
                     
@@ -123,8 +123,8 @@ def main():
                         
                         # Case 1: Weight increase with pending barcode (adding product)
                         if weight_diff > 0 and cart.pending_weight_change and cart.last_scanned_barcode:
-                            cart.add_item(cart.last_scanned_barcode, weight_diff)
                             API.add_item_to_cart(cart.last_scanned_barcode, weight_diff)
+                            cart.add_item(cart.last_scanned_barcode, weight_diff)
                             buzzer.item_added()  # Play item added sound
 
                         # Case 2: Weight increase without pending barcode (unknown addition)
@@ -163,8 +163,8 @@ def main():
                                 if len(matches) == 1:
                                     barcode, item_data = matches[0]
                                     print(f"Removed item: {barcode}, weight: {item_data['weight']:.2f}g")
-                                    cart.remove_item(barcode)
                                     API.remove_item_from_cart(barcode)
+                                    cart.remove_item(barcode)
                                     buzzer.item_removed()  # Play item removed sound
                                 elif len(matches) > 1:
                                     print(f"Ambiguous removal: {len(matches)} items match the weight {abs(weight_diff):.2f}g")
