@@ -3,7 +3,7 @@ import json
 from enum import Enum
 import os
 
-API_URL = "https://duckycart.me"  # Change to your server address
+API_URL = "https://api.duckycart.me"  # Change to your server address
 
 class Ambigous(Enum):
     """Enum for ambigous added and removed items."""
