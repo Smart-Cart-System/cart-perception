@@ -28,18 +28,23 @@ class CartInventory:
         self.pending_weight_change = False
     
     def find_removed_item(self, weight_diff):
-        """Find item matching the weight difference within threshold."""
+        """Find item matching the weight difference within threshold up or down."""
         abs_diff = abs(weight_diff)
         matches = []
         
         for barcode, item_data in self.items.items():
             item_weight = item_data["weight"]
-            # Check if weight difference matches item weight within threshold
-            if abs(abs_diff - item_weight) <= item_weight * self.weight_match_threshold:
+            threshold = item_weight * self.weight_match_threshold
+            # Check if abs_diff is within the range: [item_weight - threshold, item_weight + threshold]
+            if (item_weight - threshold) <= abs_diff <= (item_weight + threshold):
                 matches.append((barcode, item_data))
         
+        # If no matches found, return all barcodes in the cart
+        if not matches:
+            matches = list(self.items.items())
+            print(f"matches nn {matches}")
         return matches
-    
+
     def remove_item(self, barcode):
         """Remove an item from the cart or decrease its quantity."""
         if barcode not in self.items:

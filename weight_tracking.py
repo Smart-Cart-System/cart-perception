@@ -8,7 +8,7 @@ from collections import deque
 class WeightTracker:
     """Class for tracking weight changes using HX711 sensor with background thread."""
     
-    def __init__(self, dout_pin=5, pd_sck_pin=6, reference_unit=216, weight_threshold=10):
+    def __init__(self, dout_pin=5, pd_sck_pin=6, reference_unit=216, weight_threshold=15):
         """Initialize the weight tracking system with background thread."""
         # Initialize HX711 sensor
         self.hx = HX711(dout_pin, pd_sck_pin)
@@ -62,18 +62,27 @@ class WeightTracker:
         with self.lock:
             return self.current_weight
     
-    def get_weight_change(self):
-        """Get the change in weight since the last stable reading (non-blocking)."""
-        current = self.get_current_weight()
-        weight_diff = current - self.last_weight
+    def get_weight_change(self, wait_time=1.0, stability_threshold=2.0):
+        """
+        Wait for a stable weight reading for a given time before calculating the weight difference.
+        :param wait_time: Duration (in seconds) to wait for stability.
+        :param stability_threshold: Acceptable range for weight fluctuations during stability check.
+        :return: The weight difference if it exceeds the threshold, otherwise 0.
+        """
+        # Wait until weight readings stabilize over the specified wait_time
+        stable_weight = self.wait_for_stable_weight(stability_time=wait_time, stability_threshold=stability_threshold)
         
-        # Only report significant weight changes
+        # Calculate the difference from the last stable reading
+        weight_diff = stable_weight - self.last_weight
+        
+        # Report the difference only if it's significant
         if abs(weight_diff) >= self.weight_threshold:
             with self.lock:
-                self.last_weight = current
+                self.last_weight = stable_weight
             return weight_diff
-        
+
         return 0
+
     
     def wait_for_stable_weight(self, stability_time=1.0, stability_threshold=2.0):
         """Wait until weight readings stabilize."""

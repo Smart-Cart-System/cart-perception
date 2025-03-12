@@ -40,7 +40,7 @@ def main():
         expected_weight_before_removal = 0  # Weight before removal to detect if item was put back
         
         print("[INFO] System ready! Scan items and add/remove them from the cart.")
-        
+        buzzer.item_added()
         while True:
             # Camera frame processing
             ret, frame = cap.read()
@@ -84,6 +84,7 @@ def main():
                         buzzer.item_removed()  # Play item removed sound
                         waiting_for_removal_scan = False
                         removal_candidates = []
+                        time.sleep(2)  # Wait for user to see the warning
                     else:
                         buzzer.error_occurred()  # Play error sound
                         print(f"Warning: Scanned barcode {barcode_number} does not match any removal candidates")
@@ -166,7 +167,7 @@ def main():
                                     API.remove_item_from_cart(barcode)
                                     cart.remove_item(barcode)
                                     buzzer.item_removed()  # Play item removed sound
-                                elif len(matches) > 1:
+                                else:
                                     print(f"Ambiguous removal: {len(matches)} items match the weight {abs(weight_diff):.2f}g")
                                     print("Please scan the barcode of the removed item")
                                     print("Possible matches:", [b for b, _ in matches])
@@ -178,8 +179,6 @@ def main():
                                     removal_weight_diff = weight_diff
                                     expected_weight_before_removal = current_actual_weight - weight_diff
                                     buzzer.ambiguous_removal()  # Play once when entering this state
-                                else:
-                                    print(f"Unknown item removed with weight {abs(weight_diff):.2f}g")
                     
                     # Check if weight has returned to expected value while waiting for scan
                     elif waiting_for_scan:
@@ -203,26 +202,26 @@ def main():
                 last_cart_summary = current_time
             
             # Status overlay
-            status_img = frame.copy()
-            if waiting_for_scan:
-                cv2.putText(status_img, "PLEASE SCAN ADDED ITEM", (50, 50), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-                cv2.putText(status_img, f"Unscanned Weight: {unscanned_weight:.1f}g", (50, 90), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                cv2.imshow('Camera Preview', status_img)
-            elif waiting_for_removal_scan:
-                cv2.putText(status_img, "PLEASE SCAN REMOVED ITEM", (50, 50), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-                candidates_text = ", ".join([b for b, _ in removal_candidates[:3]])
-                if len(removal_candidates) > 3:
-                    candidates_text += "..."
-                cv2.putText(status_img, f"Candidates: {candidates_text}", (50, 90), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                cv2.putText(status_img, "Press 'r' to cancel", (50, 130), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                cv2.imshow('Camera Preview', status_img)
-            else:
-                cv2.imshow('Camera Preview', frame)
+            # status_img = frame.copy()
+            # if waiting_for_scan:
+            #     cv2.putText(status_img, "PLEASE SCAN ADDED ITEM", (50, 50), 
+            #                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            #     cv2.putText(status_img, f"Unscanned Weight: {unscanned_weight:.1f}g", (50, 90), 
+            #                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            #     cv2.imshow('Camera Preview', status_img)
+            # elif waiting_for_removal_scan:
+            #     cv2.putText(status_img, "PLEASE SCAN REMOVED ITEM", (50, 50), 
+            #                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+            #     candidates_text = ", ".join([str(b) for b, _ in removal_candidates[:3]])
+            #     if len(removal_candidates) > 3:
+            #         candidates_text += "..."
+            #     cv2.putText(status_img, f"Candidates: {candidates_text}", (50, 90), 
+            #                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+            #     cv2.putText(status_img, "Press 'r' to cancel", (50, 130), 
+            #                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+            #     cv2.imshow('Camera Preview', status_img)
+            # else:c
+            #     cv2.imshow('Camera Preview', frame)
             
             # Handle keyboard input
             key = cv2.waitKey(1) & 0xFF
