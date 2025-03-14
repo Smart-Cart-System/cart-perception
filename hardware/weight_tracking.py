@@ -2,7 +2,7 @@ import time
 import threading
 import statistics
 import RPi.GPIO as GPIO
-from hx711v0_5_1 import HX711
+from hardware.hx711v0_5_1 import HX711
 from collections import deque
 
 class WeightTracker:

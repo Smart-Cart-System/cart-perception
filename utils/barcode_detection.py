@@ -1,8 +1,8 @@
 import cv2
 from ultralytics import YOLO
 from pyzbar.pyzbar import decode
-from preprocessing import preprocess_image
-from yolo_inference import yolo_inference
+from utils.preprocessing import preprocess_image
+from utils.yolo_inference import yolo_inference
 # Load the YOLO model
 # model = YOLO('models/YOLO8n10-best.pt')
 
