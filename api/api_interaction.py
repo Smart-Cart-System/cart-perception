@@ -16,6 +16,10 @@ class Ambigous(Enum):
 class CartAPI:
     def __init__(self, api_url=API_URL, cart_id=None):
         self.api_url = api_url
+        self.headers = {
+            "X-API-Key": "it_is_tony_developer_smartcart2025",
+            "Content-Type": "application/json"
+        }
         self.session_id = self.get_session_by_cart(cart_id) if cart_id else None
 
     def get_session_by_cart(self, cart_id):
@@ -25,7 +29,7 @@ class CartAPI:
             url = f"{self.api_url}/customer-session/cart/{cart_id}"
             print(f"Sending GET request to {url}")
             
-            response = requests.get(url)
+            response = requests.get(url, headers=self.headers)
             
             # Process response
             if response.status_code == 200:
@@ -59,7 +63,7 @@ class CartAPI:
             print(f"Sending POST request to {url}")
             print(f"Request data: {json.dumps(item_data, indent=2)}")
             
-            response = requests.post(url, json=item_data)
+            response = requests.post(url, json=item_data, headers=self.headers)
             
             # Process response
             if response.status_code == 200:
@@ -98,7 +102,7 @@ class CartAPI:
             print(f"Sending POST request to {url}")
             print(f"Request data: {json.dumps(item_data, indent=2)}")
             
-            response = requests.post(url, json=item_data)
+            response = requests.post(url, json=item_data, headers=self.headers)
             
             # Process response
             if response.status_code == 200:
@@ -139,7 +143,7 @@ class CartAPI:
             print(f"Sending DELETE request to {url}")
             print(f"Request data: {json.dumps(item_data, indent=2)}")
             
-            response = requests.delete(url, json=item_data)
+            response = requests.delete(url, json=item_data, headers=self.headers)
             
             # Process response
             if response.status_code == 200:
@@ -178,7 +182,7 @@ class CartAPI:
             print(f"Reporting fraud warning to {url}")
             print(f"Warning type: {warning_type}")
             
-            response = requests.post(url, json=warning_data)
+            response = requests.post(url, json=warning_data, headers=self.headers)
             
             # Process response
             if response.status_code == 200:
@@ -208,7 +212,7 @@ class CartAPI:
             print(f"Sending POST request to {url}")
             print(f"Request data: {json.dumps(notification_data, indent=2)}")
             
-            response = requests.post(url, json=notification_data)
+            response = requests.post(url, json=notification_data, headers=self.headers)
             
             # Process response
             if response.status_code == 200:

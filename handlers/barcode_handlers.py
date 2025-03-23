@@ -1,5 +1,5 @@
 import time
-from cart_state import CartState
+from core.cart_state import CartState
 
 class BarcodeHandlers:
     """Handler methods for barcode-related functionality."""

@@ -11,7 +11,7 @@ from hardware.buzzer import BuzzerUtil
 from core.cart_state import CartState
 from core.config import DEFAULT_FOCUS_VALUE, WEIGHT_CHECK_INTERVAL, NOISE_THRESHOLD, CART_SUMMARY_INTERVAL
 from handlers.barcode_handlers import BarcodeHandlers
-from weight_handlers import WeightHandlers
+from handlers.weight_handlers import WeightHandlers
 
 class CartSystem:
     """Main class for the cart perception system, manages barcode detection and weight tracking."""
@@ -138,6 +138,7 @@ class CartSystem:
 
     def _handle_keyboard_input(self):
         """Handle keyboard input, returns True if program should exit."""
+        cv2.imshow("Cart Camera", self.cap.read()[1])
         key = cv2.waitKey(1) & 0xFF
         
         if key == ord('q'):
