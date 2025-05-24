@@ -3,7 +3,7 @@ import cv2
 # Initialize video captures for 4 cameras
 camera_1 = cv2.VideoCapture(0)
 camera_2 = cv2.VideoCapture(2)
-camera_3 = cv2.VideoCapture(5)
+camera_3 = cv2.VideoCapture(4)
 camera_4 = cv2.VideoCapture(6)
 
 # Set the resolution for all cameras
@@ -50,7 +50,7 @@ while True:
         cv2.imshow("Camera 4", frame4)
 
     # Exit on pressing 'q'
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if cv2.waitKey(30) & 0xFF == ord('q'):
         break
 
 # Release all cameras and close windows
