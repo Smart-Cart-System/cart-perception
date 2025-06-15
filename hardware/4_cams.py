@@ -1,10 +1,10 @@
 import cv2
 
 # Initialize video captures for 4 cameras
-camera_1 = cv2.VideoCapture(0)
-camera_2 = cv2.VideoCapture(2)
-camera_3 = cv2.VideoCapture(4)
-camera_4 = cv2.VideoCapture(6)
+camera_1 = cv2.VideoCapture("/dev/cam_hand_track")
+camera_2 = cv2.VideoCapture("/dev/cam_navigation")
+camera_3 = cv2.VideoCapture("/dev/cam_scan_left")
+camera_4 = cv2.VideoCapture("/dev/cam_scan_right")
 
 # Set the resolution for all cameras
 resolution_width = 1280
@@ -31,6 +31,9 @@ if not (camera_1.isOpened() or camera_2.isOpened() or camera_3.isOpened() or cam
     camera_3.release()
     camera_4.release()
     exit()
+
+
+
 
 while True:
     # Read frames from each camera

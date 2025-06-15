@@ -17,26 +17,18 @@ def set_color_logic(r, g, b):
     GPIO.output(RED_PIN, GPIO.HIGH if r else GPIO.LOW)
     GPIO.output(GREEN_PIN, GPIO.HIGH if g else GPIO.LOW)
     GPIO.output(BLUE_PIN, GPIO.HIGH if b else GPIO.LOW)
+    print(f"Set color: Red={r}, Green={g}, Blue={b}")
 
 try:
-    print("Testing logic control")
-    set_color_logic(1, 0, 0)  # Red
-    time.sleep(2)
-    set_color_logic(0, 1, 0)  # Green
-    time.sleep(2)
-    set_color_logic(0, 0, 1)  # Blue
-    time.sleep(2)
-    set_color_logic(0, 0, 0)  # Off
-
     while True:
         set_color_logic(1, 0, 0)  # Red
-        time.sleep(1)
+        time.sleep(2)
         set_color_logic(0, 1, 0)  # Green
-        time.sleep(1)
+        time.sleep(2)
         set_color_logic(0, 0, 1)  # Blue
-        time.sleep(1)
-        set_color_logic(0, 0, 0)  # Off
-        time.sleep(1)
+        time.sleep(2)
+        set_color_logic(1, 1, 1)  # Off
+        time.sleep(2)
 
 except KeyboardInterrupt:
     pass
