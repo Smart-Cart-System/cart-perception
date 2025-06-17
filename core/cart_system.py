@@ -12,6 +12,7 @@ from core.cart_state import CartState
 from core.config import DEFAULT_FOCUS_VALUE, WEIGHT_CHECK_INTERVAL, NOISE_THRESHOLD, CART_SUMMARY_INTERVAL
 from handlers.barcode_handlers import BarcodeHandlers
 from handlers.weight_handlers import WeightHandlers
+from hardware.led import LEDController
 
 class CartSystem:
     """Main class for the cart perception system, manages barcode detection and weight tracking."""
@@ -23,6 +24,7 @@ class CartSystem:
         self.focus_value1 = DEFAULT_FOCUS_VALUE
         self.focus_value2 = DEFAULT_FOCUS_VALUE
         self.speaker = SpeakerUtil()
+        self.led = LEDController()  # Initialize LED controller
 
         # Initialize tracking components
         self.weight_tracker = WeightTracker()
@@ -34,7 +36,9 @@ class CartSystem:
         self.unscanned_weight = 0
         self.removal_candidates = []
         self.removal_weight_diff = 0
-        self.expected_weight_before_removal = 0        # Timing variables
+        self.expected_weight_before_removal = 0
+
+        # Timing variables
         self.last_weight_check = time.time()
         self.last_cart_summary = time.time()
 
@@ -46,10 +50,12 @@ class CartSystem:
         if not cap1.isOpened():
             self.speaker.camera_error()
             raise RuntimeError("Could not open camera 1.")
+            
         if not cap2.isOpened():
             self.speaker.camera_error()
             cap1.release()  # Clean up first camera if second fails
             raise RuntimeError("Could not open camera 2.")
+            
         set_camera_properties(cap1)
         set_camera_properties(cap2)
         return cap1, cap2
@@ -58,6 +64,7 @@ class CartSystem:
         """Main loop for running the cart system."""
         print("[INFO] System ready! Scan items and add/remove them from the cart.")
         self.speaker.item_added()
+        self.led.green(80)  # Green LED indicates system ready
 
         try:
             while True:
@@ -68,6 +75,7 @@ class CartSystem:
                 if not ret1 or not ret2:
                     print("Error: Could not read frame from one or both cameras.")
                     self.speaker.camera_error()
+                    self.led.red(100)  # Red LED for camera error
                     break
                 
                 # Detect barcodes from both cameras and process state
@@ -77,6 +85,9 @@ class CartSystem:
                 # Process barcodes from either camera (prioritize camera1 if both detect)
                 detected_barcode = barcode1 if barcode1 else barcode2
                 self._process_barcode(detected_barcode)
+                
+                # Update LED based on current state
+                self._update_led_status()
                 
                 # Check weight changes
                 current_time = time.time()
@@ -89,8 +100,7 @@ class CartSystem:
                     
         except Exception as e:
             self.speaker.failure()
-            print(f"[ERROR] An unexpected error occurred: {e}")
-
+            print(f"[ERROR] An unexpected error occurred: {e}")        
         finally:
             self._cleanup()
 
@@ -99,9 +109,13 @@ class CartSystem:
         if not barcode_number:
             return
             
-        # Play scan sound if new barcode
+        # Play scan sound and show LED feedback if new barcode
         if barcode_number != self.cart.last_scanned_barcode:
             self.speaker.item_read()
+            # Brief white flash to indicate barcode read
+            self.led.white(100)
+            time.sleep(0.1)
+            
         # Handle barcode based on current state
         if self.state == CartState.WAITING_FOR_SCAN:
             BarcodeHandlers.handle_during_scan_wait(self, barcode_number)
@@ -198,6 +212,26 @@ class CartSystem:
         self.unscanned_weight = 0
         self.removal_candidates = []
         print("Cart and weight tracking reset")
+
+    def _update_led_status(self):
+        """Update LED color based on current cart system state."""
+        if self.state == CartState.NORMAL:
+            # Normal operation - steady green
+            self.led.green(80)
+        elif self.state == CartState.WAITING_FOR_SCAN:
+            # Waiting for barcode scan - blinking yellow
+            if not self.led.animation_running:
+                self.led.blink(self.led.yellow, intensity=90, blink_count=999, blink_speed=0.5)
+        elif self.state == CartState.WAITING_FOR_REMOVAL_SCAN:
+            # Waiting for removal scan - blinking orange
+            if not self.led.animation_running:
+                self.led.blink(self.led.orange, intensity=90, blink_count=999, blink_speed=0.3)
+        
+        # Additional visual feedback for unscanned weight
+        if self.unscanned_weight > 0 and self.state == CartState.NORMAL:
+            # Pulse blue to indicate unscanned items
+            if not self.led.animation_running:
+                self.led.pulse(self.led.blue, max_intensity=60, pulse_speed=0.08, duration=999)
 
     def _cleanup(self):
         """Clean up resources before exiting."""
