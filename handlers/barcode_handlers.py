@@ -27,12 +27,12 @@ class BarcodeHandlers:
                 break
         
         if found:
-            system.buzzer.item_removed()
+            system.speaker.item_removed()
             system.state = CartState.NORMAL
             system.removal_candidates = []
             time.sleep(2)  # Wait for user to see the confirmation
         else:
-            system.buzzer.error_occurred()
+            system.speaker.warning()
             print(f"Warning: Scanned barcode {barcode_number} does not match any removal candidates")
             print(f"Valid candidates are: {[b for b, _ in system.removal_candidates]}")
             print("Please scan the correct barcode of the removed item")

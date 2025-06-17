@@ -7,7 +7,7 @@ from utils.barcode_detection import detect_barcode
 from api.api_interaction import CartAPI
 from hardware.weight_tracking import WeightTracker
 from utils.cart_inventory import CartInventory
-from hardware.buzzer import BuzzerUtil
+from hardware.speaker import SpeakerUtil
 from core.cart_state import CartState
 from core.config import DEFAULT_FOCUS_VALUE, WEIGHT_CHECK_INTERVAL, NOISE_THRESHOLD, CART_SUMMARY_INTERVAL
 from handlers.barcode_handlers import BarcodeHandlers
@@ -19,9 +19,10 @@ class CartSystem:
     def __init__(self, cart_id=1):
         """Initialize the cart system with all necessary components."""
         # Initialize hardware
-        self.cap = self._init_camera()
-        self.focus_value = DEFAULT_FOCUS_VALUE
-        self.buzzer = BuzzerUtil()
+        self.cap1, self.cap2 = self._init_cameras()
+        self.focus_value1 = DEFAULT_FOCUS_VALUE
+        self.focus_value2 = DEFAULT_FOCUS_VALUE
+        self.speaker = SpeakerUtil()
 
         # Initialize tracking components
         self.weight_tracker = WeightTracker()
@@ -33,49 +34,63 @@ class CartSystem:
         self.unscanned_weight = 0
         self.removal_candidates = []
         self.removal_weight_diff = 0
-        self.expected_weight_before_removal = 0
-
-        # Timing variables
+        self.expected_weight_before_removal = 0        # Timing variables
         self.last_weight_check = time.time()
         self.last_cart_summary = time.time()
 
-    def _init_camera(self):
-        """Initialize and configure camera."""
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            raise RuntimeError("Could not open camera.")
-        set_camera_properties(cap)
-        return cap
+    def _init_cameras(self):
+        """Initialize and configure both cameras."""
+        cap1 = cv2.VideoCapture(0)
+        cap2 = cv2.VideoCapture(1)
+        
+        if not cap1.isOpened():
+            self.speaker.camera_error()
+            raise RuntimeError("Could not open camera 1.")
+        if not cap2.isOpened():
+            self.speaker.camera_error()
+            cap1.release()  # Clean up first camera if second fails
+            raise RuntimeError("Could not open camera 2.")
+        set_camera_properties(cap1)
+        set_camera_properties(cap2)
+        return cap1, cap2
 
     def run(self):
         """Main loop for running the cart system."""
         print("[INFO] System ready! Scan items and add/remove them from the cart.")
-        self.buzzer.item_added()
-        
+        self.speaker.item_added()
+
         try:
             while True:
-                # Process camera frame
-                ret, frame = self.cap.read()
-                if not ret:
-                    print("Error: Could not read frame.")
+                # Process frames from both cameras
+                ret1, frame1 = self.cap1.read()
+                ret2, frame2 = self.cap2.read()
+                
+                if not ret1 or not ret2:
+                    print("Error: Could not read frame from one or both cameras.")
+                    self.speaker.camera_error()
                     break
                 
-                # Detect barcode and process state
-                self._process_barcode(detect_barcode(frame))
+                # Detect barcodes from both cameras and process state
+                barcode1 = detect_barcode(frame1)
+                barcode2 = detect_barcode(frame2)
+                
+                # Process barcodes from either camera (prioritize camera1 if both detect)
+                detected_barcode = barcode1 if barcode1 else barcode2
+                self._process_barcode(detected_barcode)
                 
                 # Check weight changes
                 current_time = time.time()
                 self._check_weight_changes(current_time)
                 self._update_cart_summary(current_time)
                 
-                # Handle user input
-                if self._handle_keyboard_input():
+                # Handle user input (pass both frames for display)
+                if self._handle_keyboard_input(frame1, frame2):
                     break  # Exit if needed
                     
         except Exception as e:
-            self.buzzer.error_occurred()
+            self.speaker.failure()
             print(f"[ERROR] An unexpected error occurred: {e}")
-        
+
         finally:
             self._cleanup()
 
@@ -86,8 +101,7 @@ class CartSystem:
             
         # Play scan sound if new barcode
         if barcode_number != self.cart.last_scanned_barcode:
-            self.buzzer.item_scanned()
-            
+            self.speaker.item_read()
         # Handle barcode based on current state
         if self.state == CartState.WAITING_FOR_SCAN:
             BarcodeHandlers.handle_during_scan_wait(self, barcode_number)
@@ -136,21 +150,34 @@ class CartSystem:
             print("⚠️ Please scan the barcode of the removed item!")
             print(f"Possible items: {[b for b, _ in self.removal_candidates]}")
 
-    def _handle_keyboard_input(self):
+    def _handle_keyboard_input(self, frame1, frame2):
         """Handle keyboard input, returns True if program should exit."""
-        cv2.imshow("Cart Camera", self.cap.read()[1])
+        cv2.imshow("Cart Camera 1", frame1)
+        cv2.imshow("Cart Camera 2", frame2)
         key = cv2.waitKey(1) & 0xFF
         
         if key == ord('q'):
             return True
         elif key == ord('t'):
-            self.focus_value += 10
-            self.cap.set(cv2.CAP_PROP_FOCUS, self.focus_value)
-            print("focus:", self.focus_value)
+            # Increase focus for camera 1
+            self.focus_value1 += 10
+            self.cap1.set(cv2.CAP_PROP_FOCUS, self.focus_value1)
+            print("Camera 1 focus:", self.focus_value1)
         elif key == ord('y'):
-            self.focus_value -= 10
-            self.cap.set(cv2.CAP_PROP_FOCUS, self.focus_value)
-            print("focus:", self.focus_value)
+            # Decrease focus for camera 1
+            self.focus_value1 -= 10
+            self.cap1.set(cv2.CAP_PROP_FOCUS, self.focus_value1)
+            print("Camera 1 focus:", self.focus_value1)
+        elif key == ord('u'):
+            # Increase focus for camera 2
+            self.focus_value2 += 10
+            self.cap2.set(cv2.CAP_PROP_FOCUS, self.focus_value2)
+            print("Camera 2 focus:", self.focus_value2)
+        elif key == ord('i'):
+            # Decrease focus for camera 2
+            self.focus_value2 -= 10
+            self.cap2.set(cv2.CAP_PROP_FOCUS, self.focus_value2)
+            print("Camera 2 focus:", self.focus_value2)
         elif key == ord('c'):
             # Clear the cart manually
             self._reset_cart()
@@ -174,7 +201,8 @@ class CartSystem:
 
     def _cleanup(self):
         """Clean up resources before exiting."""
-        self.buzzer.cleanup()
+        print("[INFO] Cleaning up resources...")
+        self.speaker.cleanup()
         self.cap.release()
         cv2.destroyAllWindows()
         try:

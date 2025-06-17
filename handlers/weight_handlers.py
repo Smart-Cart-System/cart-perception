@@ -24,7 +24,7 @@ class WeightHandlers:
         if weight_diff > 0 and system.cart.pending_weight_change and system.cart.last_scanned_barcode:
             system.api.add_item_to_cart(system.cart.last_scanned_barcode, weight_diff)
             system.cart.add_item(system.cart.last_scanned_barcode, weight_diff)
-            system.buzzer.item_added()
+            system.speaker.item_added()
         # Case 2: Weight increase without pending barcode (unknown addition)
         elif weight_diff > 0:
             WeightHandlers.handle_unscanned_item_addition(system, weight_diff)
@@ -38,11 +38,11 @@ class WeightHandlers:
         else:
             # Start waiting for scan
             system.api.report_fraud_warning(Ambigous.ADDED)
-            system.buzzer.error_occurred()
             system.state = CartState.WAITING_FOR_SCAN
             system.unscanned_weight = weight_diff
         
         # Prompt user to scan barcode
+        system.speaker.warning()
         print(f"WARNING: Item added without scanning barcode. Weight: {system.unscanned_weight:.2f}g")
         print("Please scan the barcode of the added item!")
 
@@ -72,7 +72,7 @@ class WeightHandlers:
             print(f"Removed item: {barcode}, weight: {item_data['weight']:.2f}g")
             system.api.remove_item_from_cart(barcode)
             system.cart.remove_item(barcode)
-            system.buzzer.item_removed()
+            system.speaker.item_removed()
         else:
             # Ambiguous removal - multiple potential matches
             print(f"Ambiguous removal: {len(matches)} items match the weight {abs(weight_diff):.2f}g")
@@ -85,7 +85,7 @@ class WeightHandlers:
             system.removal_candidates = matches
             system.removal_weight_diff = weight_diff
             system.expected_weight_before_removal = current_weight - weight_diff
-            system.buzzer.ambiguous_removal()
+            system.speaker.warning()
 
     @staticmethod
     def check_weight_normalized(system, current_weight):
