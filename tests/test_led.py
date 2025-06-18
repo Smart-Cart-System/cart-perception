@@ -1,3 +1,9 @@
+import sys
+import os
+
+# Add the parent directory to the path so we can import from hardware
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from hardware.led import LEDController
 import time
 
@@ -51,3 +57,7 @@ def test_led_controller():
         print("Test interrupted by user")
     finally:
         led.cleanup()
+
+if __name__ == "__main__":
+    print("Starting LED controller test...")
+    test_led_controller()

@@ -8,13 +8,13 @@ class SpeakerUtil:
     
     # Define the sound file paths relative to the module
     SOUND_PATHS = {
-        'item_added': '..\\sounds\\item_added.mp3',
-        'item_read': '..\\sounds\\item_read.mp3',
-        'item_removed': '..\\sounds\\item_removed.mp3',
-        'camera_error': '..\\sounds\\camera_error.mp3',
-        'warning': '..\\sounds\\warning.mp3',
-        'error': '..\\sounds\\error.mp3',
-        'failure': '..\\sounds\\failure.mp3',
+        'item_added': '../sounds/item_added.mp3',
+        'item_read': '../sounds/item_read.mp3',
+        'item_removed': '../sounds/item_removed.mp3',
+        'camera_error': '../sounds/camera_error.mp3',
+        'warning': '../sounds/warning.mp3',
+        'error': '../sounds/error.mp3',
+        'failure': '../sounds/failure.mp3',
     }
     
     def __init__(self, sound_dir=None):

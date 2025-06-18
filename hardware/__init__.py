@@ -7,6 +7,6 @@ from .buzzer import BuzzerUtil
 from .weight_tracking import WeightTracker
 from .camera import set_camera_properties
 from .speaker import SpeakerUtil
-from .led import LEDUtil
+from .led import LEDController
 
-__all__ = ['BuzzerUtil', 'WeightTracker', 'set_camera_properties', 'SpeakerUtil', 'LEDUtil']
+__all__ = ['BuzzerUtil', 'WeightTracker', 'set_camera_properties', 'SpeakerUtil', 'LEDController']
