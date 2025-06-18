@@ -76,87 +76,46 @@ class LEDController:
         self.set_color_pwm(red_intensity, green_intensity, blue_intensity)
     
     def red(self, intensity=100):
-        """Set LED to red color.
-        
-        Args:
-            intensity (float): Red intensity (0-100)
-        """
         self.stop_current_animation()
         self.set_color_pwm(intensity, 0, 0)
         print(f"LED: Red (intensity: {intensity}%)")
     
     def green(self, intensity=100):
-        """Set LED to green color.
-        
-        Args:
-            intensity (float): Green intensity (0-100)
-        """
         self.stop_current_animation()
         self.set_color_pwm(0, intensity, 0)
         print(f"LED: Green (intensity: {intensity}%)")
     
     def blue(self, intensity=100):
-        """Set LED to blue color.
-        
-        Args:
-            intensity (float): Blue intensity (0-100)
-        """
         self.stop_current_animation()
         self.set_color_pwm(0, 0, intensity)
         print(f"LED: Blue (intensity: {intensity}%)")
     
     def yellow(self, intensity=100):
-        """Set LED to yellow color (red + green).
-        
-        Args:
-            intensity (float): Yellow intensity (0-100)
-        """
         self.stop_current_animation()
         self.set_color_pwm(intensity, intensity, 0)
         print(f"LED: Yellow (intensity: {intensity}%)")
     
     def orange(self, intensity=100):
-        """Set LED to orange color (red + half green).
-        
-        Args:
-            intensity (float): Orange intensity (0-100)
-        """
         self.stop_current_animation()
         self.set_color_pwm(intensity, intensity * 0.5, 0)
         print(f"LED: Orange (intensity: {intensity}%)")
     
     def white(self, intensity=100):
-        """Set LED to white color (all colors).
-        
-        Args:
-            intensity (float): White intensity (0-100)
-        """
         self.stop_current_animation()
         self.set_color_pwm(intensity, intensity, intensity)
         print(f"LED: White (intensity: {intensity}%)")
     
     def off(self):
-        """Turn off LED (all colors off)."""
         self.stop_current_animation()
         self.set_color_pwm(0, 0, 0)
         print("LED: Off")
     
     def purple(self, intensity=100):
-        """Set LED to purple color (red + blue).
-        
-        Args:
-            intensity (float): Purple intensity (0-100)
-        """
         self.stop_current_animation()
-        self.set_color_pwm(intensity, 0, intensity)
+        self.set_color_pwm(intensity, 0, intensity)        
         print(f"LED: Purple (intensity: {intensity}%)")
     
     def cyan(self, intensity=100):
-        """Set LED to cyan color (green + blue).
-        
-        Args:
-            intensity (float): Cyan intensity (0-100)
-        """
         self.stop_current_animation()
         self.set_color_pwm(0, intensity, intensity)
         print(f"LED: Cyan (intensity: {intensity}%)")
@@ -165,9 +124,122 @@ class LEDController:
         """Stop any running animation."""
         if self.animation_running:
             self.stop_animation = True
-            if self.animation_thread and self.animation_thread.is_alive():
-                self.animation_thread.join(timeout=1.0)
+            if self.animation_thread and self.animation_thread.is_alive() and self.animation_thread != threading.current_thread():
+                try:
+                    self.animation_thread.join(timeout=1.0)
+                except RuntimeError:
+                    # Cannot join current thread
+                    pass
             self.animation_running = False
+    
+    def loading(self, max_intensity=100, fade_speed=0.01, duration=0):
+        """Create a loading animation by fading orange color in and out continuously.
+        
+        Args:
+            max_intensity (float): Maximum orange intensity (0-100)
+            fade_speed (float): Time between fade steps in seconds (smaller is faster)
+            duration (float): Duration in seconds (0 for infinite)
+        """
+        def loading_animation():
+            try:
+                self.animation_running = True
+                self.stop_animation = False
+                start_time = time.time()
+                
+                while (duration == 0 or time.time() - start_time < duration) and not self.stop_animation:
+                    # Fade in
+                    for intensity in range(0, int(max_intensity) + 1):
+                        if self.stop_animation:
+                            return
+                        self.set_color_pwm(intensity, intensity * 0.5, 0)  # Orange color
+                        time.sleep(fade_speed)
+                    
+                    # Fade out
+                    for intensity in range(int(max_intensity), -1, -1):
+                        if self.stop_animation:
+                            return
+                        self.set_color_pwm(intensity, intensity * 0.5, 0)  # Orange color
+                        time.sleep(fade_speed)
+            finally:
+                self.animation_running = False
+                if not self.stop_animation:
+                    self.off()
+        
+        self.stop_current_animation()
+        self.animation_thread = threading.Thread(target=loading_animation, name="loading_animation", daemon=True)
+        self.animation_thread.start()
+        return self  # Enable method chaining
+    
+    def pulse(self, color_func, max_intensity=100, pulse_speed=0.05, duration=3):
+        """Make LED pulse with specified color.
+        
+        Args:
+            color_func (function): Color function to call (e.g., self.red)
+            max_intensity (float): Maximum intensity (0-100)
+            pulse_speed (float): Speed of pulse (smaller is faster)
+            duration (float): Duration in seconds (0 for infinite)
+        """
+        def pulse_animation():
+            try:
+                self.animation_running = True
+                self.stop_animation = False
+                start_time = time.time()
+                
+                while (duration == 0 or time.time() - start_time < duration) and not self.stop_animation:
+                    # Pulse up
+                    for intensity in range(0, int(max_intensity) + 1, 5):
+                        if self.stop_animation:
+                            return
+                        # Use direct PWM control to avoid recursively stopping animations
+                        if color_func == self.red:
+                            self.set_color_pwm(intensity, 0, 0)
+                        elif color_func == self.green:
+                            self.set_color_pwm(0, intensity, 0)
+                        elif color_func == self.blue:
+                            self.set_color_pwm(0, 0, intensity)
+                        elif color_func == self.yellow:
+                            self.set_color_pwm(intensity, intensity, 0)
+                        elif color_func == self.orange:
+                            self.set_color_pwm(intensity, intensity * 0.5, 0)
+                        elif color_func == self.white:
+                            self.set_color_pwm(intensity, intensity, intensity)
+                        elif color_func == self.purple:
+                            self.set_color_pwm(intensity, 0, intensity)
+                        elif color_func == self.cyan:
+                            self.set_color_pwm(0, intensity, intensity)
+                        time.sleep(pulse_speed)
+                    
+                    # Pulse down
+                    for intensity in range(int(max_intensity), -1, -5):
+                        if self.stop_animation:
+                            return
+                        # Use direct PWM control to avoid recursively stopping animations
+                        if color_func == self.red:
+                            self.set_color_pwm(intensity, 0, 0)
+                        elif color_func == self.green:
+                            self.set_color_pwm(0, intensity, 0)
+                        elif color_func == self.blue:
+                            self.set_color_pwm(0, 0, intensity)
+                        elif color_func == self.yellow:
+                            self.set_color_pwm(intensity, intensity, 0)
+                        elif color_func == self.orange:
+                            self.set_color_pwm(intensity, intensity * 0.5, 0)
+                        elif color_func == self.white:
+                            self.set_color_pwm(intensity, intensity, intensity)
+                        elif color_func == self.purple:
+                            self.set_color_pwm(intensity, 0, intensity)
+                        elif color_func == self.cyan:
+                            self.set_color_pwm(0, intensity, intensity)
+                        time.sleep(pulse_speed)
+            finally:
+                self.animation_running = False
+                if not self.stop_animation:
+                    self.off()
+        
+        self.stop_current_animation()
+        self.animation_thread = threading.Thread(target=pulse_animation, name="pulse_animation", daemon=True)
+        self.animation_thread.start()
+        return self  # Enable method chaining
     
     def blink(self, color_func, intensity=100, blink_count=3, blink_speed=0.5):
         """Make LED blink with specified color.
@@ -175,119 +247,61 @@ class LEDController:
         Args:
             color_func (function): Color function to call (e.g., self.red)
             intensity (float): Color intensity (0-100)
-            blink_count (int): Number of blinks
+            blink_count (int): Number of blinks (0 for infinite)
             blink_speed (float): Time between blinks in seconds
         """
         def blink_animation():
-            self.animation_running = True
-            self.stop_animation = False
-            
-            for _ in range(blink_count):
-                if self.stop_animation:
-                    break
-                color_func(intensity)
-                time.sleep(blink_speed)
-                if self.stop_animation:
-                    break
-                self.off()
-                time.sleep(blink_speed)
-            
-            self.animation_running = False
-        
-        self.stop_current_animation()
-        self.animation_thread = threading.Thread(target=blink_animation, daemon=True)
-        self.animation_thread.start()
-    
-    def pulse(self, color_func, max_intensity=100, pulse_speed=0.1, duration=5):
-        """Make LED pulse with specified color.
-        
-        Args:
-            color_func (function): Color function to call (e.g., self.red)
-            max_intensity (float): Maximum intensity (0-100)
-            pulse_speed (float): Speed of pulse
-            duration (float): Duration of pulse animation in seconds
-        """
-        def pulse_animation():
-            self.animation_running = True
-            self.stop_animation = False
-            start_time = time.time()
-            
-            while time.time() - start_time < duration and not self.stop_animation:
-                # Pulse up
-                for intensity in range(0, int(max_intensity) + 1, 5):
-                    if self.stop_animation:
-                        break
-                    color_func(intensity)
-                    time.sleep(pulse_speed)
+            try:
+                self.animation_running = True
+                self.stop_animation = False
                 
-                # Pulse down
-                for intensity in range(int(max_intensity), -1, -5):
+                count = 0
+                while (count < blink_count or blink_count == 0) and not self.stop_animation:
                     if self.stop_animation:
                         break
-                    color_func(intensity)
-                    time.sleep(pulse_speed)
-            
-            self.animation_running = False
+                    
+                    # On - use a color setting method that doesn't try to stop animations
+                    if color_func == self.red:
+                        self.set_color_pwm(intensity, 0, 0)
+                    elif color_func == self.green:
+                        self.set_color_pwm(0, intensity, 0)
+                    elif color_func == self.blue:
+                        self.set_color_pwm(0, 0, intensity)
+                    elif color_func == self.yellow:
+                        self.set_color_pwm(intensity, intensity, 0)
+                    elif color_func == self.orange:
+                        self.set_color_pwm(intensity, intensity * 0.5, 0)
+                    elif color_func == self.white:
+                        self.set_color_pwm(intensity, intensity, intensity)
+                    elif color_func == self.purple:
+                        self.set_color_pwm(intensity, 0, intensity)
+                    elif color_func == self.cyan:
+                        self.set_color_pwm(0, intensity, intensity)
+                    
+                    time.sleep(blink_speed)
+                    
+                    if self.stop_animation:
+                        break
+                        
+                    # Off
+                    self.set_color_pwm(0, 0, 0)
+                    time.sleep(blink_speed)
+                    
+                    count += 1
+            finally:
+                self.animation_running = False
+                if not self.stop_animation:
+                    self.off()
         
         self.stop_current_animation()
-        self.animation_thread = threading.Thread(target=pulse_animation, daemon=True)
+        self.animation_thread = threading.Thread(target=blink_animation, name="blink_animation", daemon=True)
         self.animation_thread.start()
+        return self  # Enable method chaining
     
     def cleanup(self):
-        """Clean up GPIO resources."""
         self.stop_current_animation()
         self.off()
         self.red_pwm.stop()
         self.green_pwm.stop()
         self.blue_pwm.stop()
-        GPIO.cleanup()
         print("[INFO] LED Controller cleaned up")
-
-
-# Test function
-def test_led_controller():
-    """Test function for LED controller."""
-    led = LEDController()
-    
-    try:
-        print("Testing LED colors...")
-        
-        # Test basic colors
-        led.red(100)
-        time.sleep(2)
-        
-        led.green(100)
-        time.sleep(2)
-        
-        led.blue(100)
-        time.sleep(2)
-        
-        led.yellow(100)
-        time.sleep(2)
-        
-        led.orange(100)
-        time.sleep(2)
-        
-        led.white(50)
-        time.sleep(2)
-        
-        # Test blinking
-        print("Testing blink...")
-        led.blink(led.red, intensity=100, blink_count=5, blink_speed=0.3)
-        time.sleep(4)
-        
-        # Test pulsing
-        print("Testing pulse...")
-        led.pulse(led.blue, max_intensity=100, pulse_speed=0.05, duration=3)
-        time.sleep(4)
-        
-        led.off()
-        
-    except KeyboardInterrupt:
-        print("Test interrupted by user")
-    finally:
-        led.cleanup()
-
-
-if __name__ == "__main__":
-    test_led_controller()

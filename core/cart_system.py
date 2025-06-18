@@ -212,16 +212,16 @@ class CartSystem:
         self.unscanned_weight = 0
         self.removal_candidates = []
         print("Cart and weight tracking reset")
-
+    
     def _update_led_status(self):
         """Update LED color based on current cart system state."""
         if self.state == CartState.NORMAL:
             # Normal operation - steady green
             self.led.green(80)
         elif self.state == CartState.WAITING_FOR_SCAN:
-            # Waiting for barcode scan - blinking yellow
+            # Waiting for barcode scan - loading animation with orange
             if not self.led.animation_running:
-                self.led.blink(self.led.yellow, intensity=90, blink_count=999, blink_speed=0.5)
+                self.led.loading(max_intensity=90, fade_speed=0.01, duration=0)  # Continuous until state changes
         elif self.state == CartState.WAITING_FOR_REMOVAL_SCAN:
             # Waiting for removal scan - blinking orange
             if not self.led.animation_running:
@@ -232,12 +232,14 @@ class CartSystem:
             # Pulse blue to indicate unscanned items
             if not self.led.animation_running:
                 self.led.pulse(self.led.blue, max_intensity=60, pulse_speed=0.08, duration=999)
-
+    
     def _cleanup(self):
         """Clean up resources before exiting."""
         print("[INFO] Cleaning up resources...")
         self.speaker.cleanup()
-        self.cap.release()
+        self.led.cleanup()
+        self.cap1.release()
+        self.cap2.release()
         cv2.destroyAllWindows()
         try:
             self.weight_tracker.cleanup()
