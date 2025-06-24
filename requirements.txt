@@ -4,5 +4,8 @@ opencv_python==4.7.0.72
 pyzbar==0.1.9
 Requests==2.32.3
 ultralytics==8.3.81
-rpi-lgpio
-pygame==2.5.2
+rpi-lgpio==0.6
+pygame==2.6.1
+spidev==3.7
+websockets==15.0.1
+dotenv==0.9.9

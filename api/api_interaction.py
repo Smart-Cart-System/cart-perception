@@ -2,8 +2,15 @@ import requests
 import json
 from enum import Enum
 import os
+import sys
 
-API_URL = "https://api.duckycart.me"  # Change to your server address
+# Add the parent directory to the Python path to enable imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from core.config import Config
+
+API_URL = Config.API_HOST
+API_KEY = Config.API_KEY
 
 class Ambigous(Enum):
     """Enum for ambigous added and removed items."""
@@ -17,7 +24,7 @@ class CartAPI:
     def __init__(self, api_url=API_URL, cart_id=None):
         self.api_url = api_url
         self.headers = {
-            "X-API-Key": "it_is_tony_developer_smartcart2025",
+            "X-API-Key": API_KEY,
             "Content-Type": "application/json"
         }
         self.session_id = self.get_session_by_cart(cart_id) if cart_id else None

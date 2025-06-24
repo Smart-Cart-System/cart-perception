@@ -15,6 +15,7 @@ class SpeakerUtil:
         'warning': '../sounds/warning.mp3',
         'error': '../sounds/error.mp3',
         'failure': '../sounds/failure.mp3',
+        'quack': '../sounds/quack.mp3',
     }
     
     def __init__(self, sound_dir=None):
@@ -124,7 +125,15 @@ class SpeakerUtil:
     def error(self):
         """Play sound for when an error occurs."""
         self.play_async('error')
+
+    def failure(self):
+        """Play sound for when a failure occurs."""
+        self.play_async('failure')
     
+    def quack(self):
+        """Play a quack sound."""
+        self.play_async('quack')
+
     def play_custom(self, sound_name):
         """Play a custom sound by name.
         

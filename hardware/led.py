@@ -78,47 +78,38 @@ class LEDController:
     def red(self, intensity=100):
         self.stop_current_animation()
         self.set_color_pwm(intensity, 0, 0)
-        print(f"LED: Red (intensity: {intensity}%)")
     
     def green(self, intensity=100):
         self.stop_current_animation()
         self.set_color_pwm(0, intensity, 0)
-        print(f"LED: Green (intensity: {intensity}%)")
     
     def blue(self, intensity=100):
         self.stop_current_animation()
         self.set_color_pwm(0, 0, intensity)
-        print(f"LED: Blue (intensity: {intensity}%)")
     
     def yellow(self, intensity=100):
         self.stop_current_animation()
         self.set_color_pwm(intensity, intensity, 0)
-        print(f"LED: Yellow (intensity: {intensity}%)")
     
     def orange(self, intensity=100):
         self.stop_current_animation()
         self.set_color_pwm(intensity, intensity * 0.5, 0)
-        print(f"LED: Orange (intensity: {intensity}%)")
     
     def white(self, intensity=100):
         self.stop_current_animation()
         self.set_color_pwm(intensity, intensity, intensity)
-        print(f"LED: White (intensity: {intensity}%)")
     
     def off(self):
         self.stop_current_animation()
         self.set_color_pwm(0, 0, 0)
-        print("LED: Off")
     
     def purple(self, intensity=100):
         self.stop_current_animation()
-        self.set_color_pwm(intensity, 0, intensity)        
-        print(f"LED: Purple (intensity: {intensity}%)")
+        self.set_color_pwm(intensity, 0, intensity)
     
     def cyan(self, intensity=100):
         self.stop_current_animation()
         self.set_color_pwm(0, intensity, intensity)
-        print(f"LED: Cyan (intensity: {intensity}%)")
     
     def stop_current_animation(self):
         """Stop any running animation."""
@@ -299,9 +290,5 @@ class LEDController:
         return self  # Enable method chaining
     
     def cleanup(self):
-        self.stop_current_animation()
         self.off()
-        self.red_pwm.stop()
-        self.green_pwm.stop()
-        self.blue_pwm.stop()
         print("[INFO] LED Controller cleaned up")

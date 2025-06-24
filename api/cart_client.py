@@ -5,7 +5,7 @@ import uuid
 import socket
 
 # Configuration
-SERVER_URL = "wss://api.duckycart.me:8000/ws/cart"
+SERVER_URL = "wss://api.duckycart.me:8000/ws/hardware/cart"
 CART_ID = str(uuid.uuid4())  # Unique cart id (you can make this static if you want)
 
 # Helper: Get local IP for debug

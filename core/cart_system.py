@@ -9,7 +9,7 @@ from hardware.weight_tracking import WeightTracker
 from utils.cart_inventory import CartInventory
 from hardware.speaker import SpeakerUtil
 from core.cart_state import CartState
-from core.config import DEFAULT_FOCUS_VALUE, WEIGHT_CHECK_INTERVAL, NOISE_THRESHOLD, CART_SUMMARY_INTERVAL
+from core.config import Config
 from handlers.barcode_handlers import BarcodeHandlers
 from handlers.weight_handlers import WeightHandlers
 from hardware.led import LEDController
@@ -19,12 +19,13 @@ class CartSystem:
 
     def __init__(self, cart_id=1):
         """Initialize the cart system with all necessary components."""
+        self.speaker = SpeakerUtil()
+        self.led = LEDController()
+
         # Initialize hardware
         self.cap1, self.cap2 = self._init_cameras()
-        self.focus_value1 = DEFAULT_FOCUS_VALUE
-        self.focus_value2 = DEFAULT_FOCUS_VALUE
-        self.speaker = SpeakerUtil()
-        self.led = LEDController()  # Initialize LED controller
+        self.focus_value1 = Config.DEFAULT_FOCUS_VALUE
+        self.focus_value2 = Config.DEFAULT_FOCUS_VALUE
 
         # Initialize tracking components
         self.weight_tracker = WeightTracker()
@@ -44,8 +45,8 @@ class CartSystem:
 
     def _init_cameras(self):
         """Initialize and configure both cameras."""
-        cap1 = cv2.VideoCapture(0)
-        cap2 = cv2.VideoCapture(1)
+        cap1 = cv2.VideoCapture("/dev/cam_scan_left")
+        cap2 = cv2.VideoCapture("/dev/cam_scan_right")
         
         if not cap1.isOpened():
             self.speaker.camera_error()
@@ -63,8 +64,8 @@ class CartSystem:
     def run(self):
         """Main loop for running the cart system."""
         print("[INFO] System ready! Scan items and add/remove them from the cart.")
-        self.speaker.item_added()
-        self.led.green(80)  # Green LED indicates system ready
+        self.speaker.quack()
+        self.led.pulse(self.led.green)
 
         try:
             while True:
@@ -126,7 +127,7 @@ class CartSystem:
 
     def _check_weight_changes(self, current_time):
         """Check for weight changes and update system state accordingly."""
-        if current_time - self.last_weight_check < WEIGHT_CHECK_INTERVAL:
+        if current_time - self.last_weight_check < Config.WEIGHT_CHECK_INTERVAL:
             return
             
         self.last_weight_check = current_time
@@ -140,7 +141,7 @@ class CartSystem:
         weight_diff = self.weight_tracker.get_weight_change()
         
         # Process significant weight changes
-        if abs(weight_diff) > NOISE_THRESHOLD:
+        if abs(weight_diff) > Config.NOISE_THRESHOLD:
             print(f"Weight change detected: {weight_diff:.2f}g")
             
             if weight_diff > 0:
@@ -152,7 +153,7 @@ class CartSystem:
 
     def _update_cart_summary(self, current_time):
         """Update and display cart summary periodically."""
-        if current_time - self.last_cart_summary < CART_SUMMARY_INTERVAL:
+        if current_time - self.last_cart_summary < Config.CART_SUMMARY_INTERVAL:
             return
             
         self.last_cart_summary = current_time
@@ -216,8 +217,7 @@ class CartSystem:
     def _update_led_status(self):
         """Update LED color based on current cart system state."""
         if self.state == CartState.NORMAL:
-            # Normal operation - steady green
-            self.led.green(80)
+            self.led.white(100)
         elif self.state == CartState.WAITING_FOR_SCAN:
             # Waiting for barcode scan - loading animation with orange
             if not self.led.animation_running:
@@ -231,7 +231,7 @@ class CartSystem:
         if self.unscanned_weight > 0 and self.state == CartState.NORMAL:
             # Pulse blue to indicate unscanned items
             if not self.led.animation_running:
-                self.led.pulse(self.led.blue, max_intensity=60, pulse_speed=0.08, duration=999)
+                self.led.pulse(self.led.blue, max_intensity=100, pulse_speed=0.08, duration=999)
     
     def _cleanup(self):
         """Clean up resources before exiting."""

@@ -1,6 +1,6 @@
 from core.cart_state import CartState
 from api.api_interaction import Ambigous
-from core.config import WEIGHT_TOLERANCE
+from core.config import Config
 
 class WeightHandlers:
     """Handler methods for weight-related functionality."""
@@ -8,7 +8,7 @@ class WeightHandlers:
     @staticmethod
     def check_item_returned(system, current_weight):
         """Check if an item was put back during removal wait state."""
-        tolerance = max(WEIGHT_TOLERANCE, abs(system.removal_weight_diff) * 0.05)  # 5% or min tolerance
+        tolerance = max(Config.WEIGHT_TOLERANCE, abs(system.removal_weight_diff) * 0.05)  # 5% or min tolerance
         
         if abs(current_weight - system.expected_weight_before_removal) < tolerance:
             print("Weight returned to normal, item was likely put back")
