@@ -1,19 +1,38 @@
 import cv2
 from pyzbar import pyzbar
+import numpy as np
 
 def set_camera_properties(cap):
     """Configure camera settings for better capture quality."""
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-    cap.set(cv2.CAP_PROP_FPS, 30)
-    cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)
-    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+    # cap.set(cv2.CAP_PROP_FPS, 30)
+    # cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)  # Start with autofocus ON
+    # cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+    cap.set(cv2.CAP_PROP_CONTRAST, 80)
+    cap.set(cv2.CAP_PROP_BRIGHTNESS, -100)
+    
+    # Print confirmation of settings
+    print(f"Camera settings: {cap.get(cv2.CAP_PROP_FRAME_WIDTH)}x{cap.get(cv2.CAP_PROP_FRAME_HEIGHT)}, "
+          f"Contrast: {cap.get(cv2.CAP_PROP_CONTRAST)}, "
+          f"Brightness: {cap.get(cv2.CAP_PROP_BRIGHTNESS)}")
+
+
+def calculate_focus_measure(frame):
+    """Calculate the focus measure (sharpness) of an image using Laplacian variance."""
+    # Check if image is already grayscale
+    if len(frame.shape) == 2 or (len(frame.shape) == 3 and frame.shape[2] == 1):
+        gray = frame
+    else:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
+    return cv2.Laplacian(gray, cv2.CV_64F).var() + 200
 
 
 def main():
     # Initialize webcam (0 default camera)
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture("/dev/cam_scan_right")
     set_camera_properties(cap=cap)
     if not cap.isOpened():
         print("Error: Could not open video source.")

@@ -7,11 +7,13 @@ from .barcode_detection import detect_barcode
 from .cart_inventory import CartInventory
 from .preprocessing import preprocess_image
 from .utils import get_stable_value, weight_to_text
+from .threaded_camera import ThreadedCamera
 
 __all__ = [
     'detect_barcode',
     'CartInventory',
     'preprocess_image',
     'get_stable_value',
-    'weight_to_text'
+    'weight_to_text',
+    'ThreadedCamera'
 ]

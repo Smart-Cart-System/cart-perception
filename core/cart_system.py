@@ -2,8 +2,9 @@ import cv2
 import time
 import RPi.GPIO as GPIO
 
-from hardware.camera import set_camera_properties
+from hardware.camera import set_camera_properties, calculate_focus_measure
 from utils.barcode_detection import detect_barcode
+from utils.threaded_camera import ThreadedCamera
 from api.api_interaction import CartAPI
 from hardware.weight_tracking import WeightTracker
 from utils.cart_inventory import CartInventory
@@ -26,6 +27,12 @@ class CartSystem:
         self.cap1, self.cap2 = self._init_cameras()
         self.focus_value1 = Config.DEFAULT_FOCUS_VALUE
         self.focus_value2 = Config.DEFAULT_FOCUS_VALUE
+        
+        # Autofocus management
+        self.last_af_trigger_time1 = 0
+        self.last_af_trigger_time2 = 0
+        self.FOCUS_THRESHOLD = 350  # Lower = allows more blur
+        self.AF_RETRY_DELAY = 1.5   # seconds before retrying autofocus
 
         # Initialize tracking components
         self.weight_tracker = WeightTracker()
@@ -42,24 +49,22 @@ class CartSystem:
         # Timing variables
         self.last_weight_check = time.time()
         self.last_cart_summary = time.time()
+        self.last_fps_print = time.time()
+        self.frame_count = 0
+        self.last_scan_time = 0
 
     def _init_cameras(self):
         """Initialize and configure both cameras."""
-        cap1 = cv2.VideoCapture("/dev/cam_scan_left")
-        cap2 = cv2.VideoCapture("/dev/cam_scan_right")
-        
-        if not cap1.isOpened():
+        # Use ThreadedCamera for improved performance
+        self.camera1 = ThreadedCamera("/dev/cam_scan_left", "Camera 1")
+        self.camera2 = ThreadedCamera("/dev/cam_scan_right", "Camera 2")
+
+        if not self.camera1.isOpened() or not self.camera2.isOpened():
             self.speaker.camera_error()
-            raise RuntimeError("Could not open camera 1.")
-            
-        if not cap2.isOpened():
-            self.speaker.camera_error()
-            cap1.release()  # Clean up first camera if second fails
-            raise RuntimeError("Could not open camera 2.")
-            
-        set_camera_properties(cap1)
-        set_camera_properties(cap2)
-        return cap1, cap2
+            raise RuntimeError("Could not open one or both cameras.")
+
+        # Cameras are configured in the ThreadedCamera class now
+        return self.camera1, self.camera2
 
     def run(self):
         """Main loop for running the cart system."""
@@ -70,18 +75,28 @@ class CartSystem:
         try:
             while True:
                 # Process frames from both cameras
-                ret1, frame1 = self.cap1.read()
-                ret2, frame2 = self.cap2.read()
+                frame1 = self.camera1.read()
+                frame2 = self.camera2.read()
                 
-                if not ret1 or not ret2:
+                # FPS calculation
+                self.frame_count += 1
+                current_time = time.time()
+                if current_time - self.last_fps_print >= 5.0:  # Print every 5 seconds
+                    fps = self.frame_count / (current_time - self.last_fps_print)
+                    print(f"[INFO] FPS: {fps:.2f}")
+                    self.last_fps_print = current_time
+                    self.frame_count = 0
+                
+                if frame1 is None or frame2 is None:
                     print("Error: Could not read frame from one or both cameras.")
                     self.speaker.camera_error()
                     self.led.red(100)  # Red LED for camera error
-                    break
+                    time.sleep(0.5)  # Brief pause before retry
+                    continue
                 
-                # Detect barcodes from both cameras and process state
-                barcode1 = detect_barcode(frame1)
-                barcode2 = detect_barcode(frame2)
+                # Process each frame (autofocus, barcode detection, drawing)
+                processed_frame1, barcode1 = self._process_camera_frame(frame1, self.camera1, 1)
+                processed_frame2, barcode2 = self._process_camera_frame(frame2, self.camera2, 2)
                 
                 # Process barcodes from either camera (prioritize camera1 if both detect)
                 detected_barcode = barcode1 if barcode1 else barcode2
@@ -95,8 +110,8 @@ class CartSystem:
                 self._check_weight_changes(current_time)
                 self._update_cart_summary(current_time)
                 
-                # Handle user input (pass both frames for display)
-                if self._handle_keyboard_input(frame1, frame2):
+                # Combine frames for display and handle user input
+                if self._handle_keyboard_input(processed_frame1, processed_frame2):
                     break  # Exit if needed
                     
         except Exception as e:
@@ -104,6 +119,41 @@ class CartSystem:
             print(f"[ERROR] An unexpected error occurred: {e}")        
         finally:
             self._cleanup()
+
+    def _process_camera_frame(self, frame, camera, camera_num):
+        """Process a single camera frame for autofocus and barcode detection."""
+        # Manage autofocus
+        self._manage_camera_autofocus(frame, camera.cap, camera_num)
+        
+        # Detect barcode
+        barcode = detect_barcode(frame)
+        
+        return frame, barcode
+
+    def _manage_camera_autofocus(self, frame, cap, camera_num):
+        """Manage autofocus for a single camera based on image sharpness."""
+        current_time = time.time()
+        
+        # Calculate focus measure
+        focus_measure = calculate_focus_measure(frame)
+        
+        # Debug: Add focus measure to frame
+        cv2.putText(frame, f"Focus: {focus_measure:.2f}", (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+        
+        last_af_trigger_time = self.last_af_trigger_time1 if camera_num == 1 else self.last_af_trigger_time2
+
+        # Autofocus logic
+        if (current_time - last_af_trigger_time) > self.AF_RETRY_DELAY:
+            if focus_measure < self.FOCUS_THRESHOLD:
+                print(f"Camera {camera_num} focus blurry ({focus_measure:.2f}), retrying autofocus...")
+                cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+                time.sleep(0.05)
+                cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)
+                if camera_num == 1:
+                    self.last_af_trigger_time1 = current_time
+                else:
+                    self.last_af_trigger_time2 = current_time
 
     def _process_barcode(self, barcode_number):
         """Process detected barcode based on current system state."""
@@ -116,6 +166,7 @@ class CartSystem:
             # Brief white flash to indicate barcode read
             self.led.white(100)
             time.sleep(0.1)
+            self.last_scan_time = time.time()
             
         # Handle barcode based on current state
         if self.state == CartState.WAITING_FOR_SCAN:
@@ -132,6 +183,9 @@ class CartSystem:
             
         self.last_weight_check = current_time
         current_actual_weight = self.weight_tracker.get_current_weight()
+
+        # Check for scan timeout
+        self._check_scan_timeout(current_time)
         
         # Check for special case: item put back during removal wait
         if self.state == CartState.WAITING_FOR_REMOVAL_SCAN:
@@ -165,10 +219,20 @@ class CartSystem:
             print("⚠️ Please scan the barcode of the removed item!")
             print(f"Possible items: {[b for b, _ in self.removal_candidates]}")
 
+    def _check_scan_timeout(self, current_time):
+        """Checks if the last scanned item should be cancelled due to a timeout."""
+        if self.cart.last_scanned_barcode and (self.state == CartState.NORMAL) and (current_time - self.last_scan_time > 5.0):
+            print(f"[INFO] Timeout for barcode {self.cart.last_scanned_barcode}. Cancelling scan.")
+            self.cart.last_scanned_barcode = None
+            self.last_scan_time = 0  # Reset timer
+            self.speaker.error()  # Notify user
+
     def _handle_keyboard_input(self, frame1, frame2):
         """Handle keyboard input, returns True if program should exit."""
-        cv2.imshow("Cart Camera 1", frame1)
-        cv2.imshow("Cart Camera 2", frame2)
+        # Combine frames for display
+        combined_frame = cv2.hconcat([frame1, frame2])
+        cv2.imshow("Cart Cameras", combined_frame)
+        
         key = cv2.waitKey(1) & 0xFF
         
         if key == ord('q'):
@@ -176,22 +240,22 @@ class CartSystem:
         elif key == ord('t'):
             # Increase focus for camera 1
             self.focus_value1 += 10
-            self.cap1.set(cv2.CAP_PROP_FOCUS, self.focus_value1)
+            self.camera1.cap.set(cv2.CAP_PROP_FOCUS, self.focus_value1)
             print("Camera 1 focus:", self.focus_value1)
         elif key == ord('y'):
             # Decrease focus for camera 1
             self.focus_value1 -= 10
-            self.cap1.set(cv2.CAP_PROP_FOCUS, self.focus_value1)
+            self.camera1.cap.set(cv2.CAP_PROP_FOCUS, self.focus_value1)
             print("Camera 1 focus:", self.focus_value1)
         elif key == ord('u'):
             # Increase focus for camera 2
             self.focus_value2 += 10
-            self.cap2.set(cv2.CAP_PROP_FOCUS, self.focus_value2)
+            self.camera2.cap.set(cv2.CAP_PROP_FOCUS, self.focus_value2)
             print("Camera 2 focus:", self.focus_value2)
         elif key == ord('i'):
             # Decrease focus for camera 2
             self.focus_value2 -= 10
-            self.cap2.set(cv2.CAP_PROP_FOCUS, self.focus_value2)
+            self.camera2.cap.set(cv2.CAP_PROP_FOCUS, self.focus_value2)
             print("Camera 2 focus:", self.focus_value2)
         elif key == ord('c'):
             # Clear the cart manually
@@ -238,8 +302,8 @@ class CartSystem:
         print("[INFO] Cleaning up resources...")
         self.speaker.cleanup()
         self.led.cleanup()
-        self.cap1.release()
-        self.cap2.release()
+        self.camera1.release()
+        self.camera2.release()
         cv2.destroyAllWindows()
         try:
             self.weight_tracker.cleanup()
