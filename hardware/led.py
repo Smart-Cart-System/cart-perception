@@ -5,7 +5,7 @@ import threading
 class LEDController:
     """LED Controller with PWM support for RGB LED control."""
     
-    def __init__(self, red_pin=17, green_pin=27, blue_pin=22, pwm_frequency=1000):
+    def __init__(self, red_pin=27, green_pin=22, blue_pin=17, pwm_frequency=1000):
         """Initialize LED controller with PWM support.
         
         Args:

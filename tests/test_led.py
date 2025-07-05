@@ -16,12 +16,15 @@ def test_led_controller():
         print("Testing LED colors...")
         
         # Test basic colors
+        print("testing red...")
         led.red(100)
         time.sleep(2)
         
+        print("testing green...")
         led.green(100)
         time.sleep(2)
         
+        print("testing blue...")
         led.blue(100)
         time.sleep(2)
         

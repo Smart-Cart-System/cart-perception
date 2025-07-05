@@ -52,7 +52,7 @@ class WeightHandlers:
         # If waiting for scan, check if weight returned to normal
         if system.state == CartState.WAITING_FOR_SCAN:
             expected_weight = system.cart.total_expected_weight
-            if abs(current_weight - expected_weight) < WEIGHT_TOLERANCE:
+            if abs(current_weight - expected_weight) < Config.WEIGHT_TOLERANCE:
                 print("Weight returned to normal, cancelling scan request")
                 system.api.cancel_warning()
                 system.state = CartState.NORMAL
@@ -91,7 +91,7 @@ class WeightHandlers:
     def check_weight_normalized(system, current_weight):
         """Check if weight has returned to expected value while waiting for scan."""
         expected_weight = system.cart.total_expected_weight
-        if abs(current_weight - expected_weight) < WEIGHT_TOLERANCE:
+        if abs(current_weight - expected_weight) < Config.WEIGHT_TOLERANCE:
             print("Weight returned to normal, cancelling scan request")
             system.api.cancel_warning()
             system.state = CartState.NORMAL

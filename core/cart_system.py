@@ -53,6 +53,11 @@ class CartSystem:
         self.frame_count = 0
         self.last_scan_time = 0
 
+        # Add LED action tracking
+        self.led_action = None
+        self.led_action_start_time = 0
+        self.led_action_duration = 3  # Duration in seconds for action-specific LED effects
+
     def _init_cameras(self):
         """Initialize and configure both cameras."""
         # Use ThreadedCamera for improved performance
@@ -70,7 +75,10 @@ class CartSystem:
         """Main loop for running the cart system."""
         print("[INFO] System ready! Scan items and add/remove them from the cart.")
         self.speaker.quack()
-        self.led.pulse(self.led.green)
+        
+        # Set startup LED effect
+        self.led_action = "start"
+        self.led_action_start_time = time.time()
 
         try:
             while True:
@@ -163,9 +171,9 @@ class CartSystem:
         # Play scan sound and show LED feedback if new barcode
         if barcode_number != self.cart.last_scanned_barcode:
             self.speaker.item_read()
-            # Brief white flash to indicate barcode read
-            self.led.white(100)
-            time.sleep(0.1)
+            # Set LED feedback for successful scan
+            self.led_action = "scan"
+            self.led_action_start_time = time.time()
             self.last_scan_time = time.time()
             
         # Handle barcode based on current state
@@ -199,8 +207,14 @@ class CartSystem:
             print(f"Weight change detected: {weight_diff:.2f}g")
             
             if weight_diff > 0:
+                # Item added - set LED action
+                self.led_action = "add"
+                self.led_action_start_time = time.time()
                 WeightHandlers.handle_weight_increase(self, weight_diff)
             else:
+                # Item removed - set LED action
+                self.led_action = "remove"
+                self.led_action_start_time = time.time()
                 WeightHandlers.handle_weight_decrease(self, weight_diff, current_actual_weight)
         elif self.state == CartState.WAITING_FOR_SCAN:
             WeightHandlers.check_weight_normalized(self, current_actual_weight)
@@ -231,7 +245,7 @@ class CartSystem:
         """Handle keyboard input, returns True if program should exit."""
         # Combine frames for display
         combined_frame = cv2.hconcat([frame1, frame2])
-        cv2.imshow("Cart Cameras", combined_frame)
+        # cv2.imshow("Cart Cameras", combined_frame)
         
         key = cv2.waitKey(1) & 0xFF
         
@@ -279,7 +293,35 @@ class CartSystem:
         print("Cart and weight tracking reset")
     
     def _update_led_status(self):
-        """Update LED color based on current cart system state."""
+        """Update LED color based on current cart system state or recent actions."""
+        current_time = time.time()
+        
+        # Check if we have an active LED action effect
+        if self.led_action and (current_time - self.led_action_start_time < self.led_action_duration):
+            # Action-specific LED effects take priority
+            if self.led_action == "scan":
+                # Green flash for successful scan
+                if not self.led.animation_running:
+                    self.led.blue(100)
+            elif self.led_action == "add":
+                # Blue pulse for item added
+                if not self.led.animation_running:
+                    self.led.green(100)
+            elif self.led_action == "remove":
+                # Yellow pulse for item removed
+                if not self.led.animation_running:
+                    self.led.yellow(100)
+            elif self.led_action == "start":
+                # Green pulse for system startup
+                if not self.led.animation_running:
+                    self.led.green(100)
+            return
+        
+        # Reset action if duration expired
+        if self.led_action and (current_time - self.led_action_start_time >= self.led_action_duration):
+            self.led_action = None
+        
+        # Default state-based LED behavior
         if self.state == CartState.NORMAL:
             self.led.white(100)
         elif self.state == CartState.WAITING_FOR_SCAN:
@@ -296,7 +338,7 @@ class CartSystem:
             # Pulse blue to indicate unscanned items
             if not self.led.animation_running:
                 self.led.pulse(self.led.blue, max_intensity=100, pulse_speed=0.08, duration=999)
-    
+
     def _cleanup(self):
         """Clean up resources before exiting."""
         print("[INFO] Cleaning up resources...")

@@ -4,7 +4,7 @@ import RPi.GPIO as GPIO
 from hx711v0_5_1 import HX711
 
 # Load cell configuration
-DT_PIN = 19
+DT_PIN = 5
 SCK_PIN = 6
 REFERENCE_UNIT = 200
 update_interval = 0.5
