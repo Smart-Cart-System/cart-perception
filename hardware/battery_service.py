@@ -82,6 +82,8 @@ class BatteryService:
         self.critical_battery_notified = False
         self.monitoring_active = False
         self.monitoring_thread = None
+        self.shutdown_scheduled = False
+        self.shutdown_timer = None
         
         # API integration
         self.cart_id = cart_id
@@ -109,7 +111,7 @@ class BatteryService:
         self.AVERAGING_DURATION = 20  # Duration in seconds for averaging
         
         # Voltage range for battery level calculation
-        self.MIN_VOLTAGE = 9.0
+        self.MIN_VOLTAGE = 10.5
         self.MAX_VOLTAGE = 12.6
 
     def read_adc(self) -> int:
@@ -197,8 +199,8 @@ class BatteryService:
             return False
 
     def shutdown_pi(self):
-        """Safely shutdown the Raspberry Pi."""
-        self.logger.critical(f"CRITICAL: Battery level too low (≤{self.SHUTDOWN_THRESHOLD}%). Shutting down Raspberry Pi...")
+        """Safely shutdown the Raspberry Pi with a 2-minute delay."""
+        self.logger.critical(f"CRITICAL: Battery level too low (≤{self.SHUTDOWN_THRESHOLD}%). Will shut down in 2 minutes...")
         
         try:
             # Log the shutdown
@@ -210,19 +212,81 @@ class BatteryService:
             
             # Send final notification if possible
             if self.api and self.api.session_id:
-                self.send_battery_notification(self.last_battery_level, "SHUTDOWN")
+                self.send_battery_notification(self.last_battery_level, "SHUTDOWN IMMINENT (2 min)")
             
-            # Stop monitoring
-            self.monitoring_active = False
+            # Continue monitoring to check if battery recovers
+            self.shutdown_scheduled = True
             
-            # Initiate shutdown with a 30-second delay to allow for cleanup
-            self.logger.info("Initiating shutdown in 30 seconds...")
-            subprocess.run(["sudo", "shutdown", "-h", "+0.5"], check=True)
+            # Start a recovery check thread
+            recovery_thread = threading.Thread(
+                target=self.monitor_for_recovery,
+                daemon=True
+            )
+            recovery_thread.start()
+            
+            # Initiate shutdown with a 2-minute delay
+            self.logger.info("Initiating shutdown in 2 minutes...")
+            subprocess.run(["sudo", "shutdown", "-h", "+2"], check=True)
             
         except Exception as e:
             self.logger.error(f"Error during shutdown: {e}")
             # Force shutdown as fallback
             os.system("sudo halt")
+    
+    def monitor_for_recovery(self):
+        """Monitor battery level during shutdown countdown for possible recovery."""
+        recovery_check_interval = 15  # Check every 15 seconds
+        recovery_threshold = self.SHUTDOWN_THRESHOLD + 2.0  # 7% for recovery
+        max_checks = 7  # About 1.75 minutes of checks (leaving 15 seconds for shutdown)
+        
+        self.logger.info(f"Starting shutdown recovery monitor. Will check for battery recovery above {recovery_threshold}%")
+        
+        for _ in range(max_checks):
+            time.sleep(recovery_check_interval)
+            
+            try:
+                # Check current battery level
+                voltage, _, _ = self.get_battery_voltage()
+                current_level = self.get_battery_level(voltage)
+                
+                self.logger.info(f"Recovery check: Current battery level is {current_level}%")
+                
+                # If battery recovered, cancel shutdown
+                if current_level >= recovery_threshold:
+                    self.cancel_shutdown()
+                    return
+            except Exception as e:
+                self.logger.error(f"Error in recovery monitor: {e}")
+        
+        self.logger.info("Recovery monitoring complete. Shutdown will proceed.")
+    
+    def cancel_shutdown(self):
+        """Cancel a scheduled shutdown if battery has recovered."""
+        if self.shutdown_scheduled:
+            self.logger.info("Battery level has recovered! Attempting to cancel shutdown...")
+            try:
+                # Cancel the scheduled shutdown
+                result = subprocess.run(["sudo", "shutdown", "-c"], 
+                                        capture_output=True, text=True, check=True)
+                
+                self.logger.info(f"Shutdown cancelled: {result.stdout.strip()}")
+                
+                # Send recovery notification
+                if self.api and self.api.session_id:
+                    self.send_battery_notification(self.last_battery_level, "RECOVERY - SHUTDOWN CANCELLED")
+                
+                # Reset shutdown flag
+                self.shutdown_scheduled = False
+                
+                # Resume monitoring
+                if not self.monitoring_active:
+                    self.start()
+                
+                return True
+            except Exception as e:
+                self.logger.error(f"Failed to cancel shutdown: {e}")
+                return False
+        return False
 
     def check_battery_and_notify(self, battery_level: float):
         """Check battery level and send appropriate notifications."""
@@ -230,7 +294,8 @@ class BatteryService:
         self.last_battery_level = battery_level
         
         # Check for shutdown threshold
-        if battery_level <= self.SHUTDOWN_THRESHOLD:
+        if battery_level <= self.SHUTDOWN_THRESHOLD and not self.shutdown_scheduled:
+            self.shutdown_scheduled = True
             self.shutdown_pi()
             return
         
@@ -324,6 +389,7 @@ class BatteryService:
                 "last_level": self.last_battery_level,
                 "low_battery_notified": self.low_battery_notified,
                 "critical_battery_notified": self.critical_battery_notified,
+                "shutdown_scheduled": self.shutdown_scheduled,
                 "api_connected": self.api is not None and self.api.session_id is not None,
                 "cart_id": self.cart_id,
                 "thresholds": {
@@ -413,7 +479,10 @@ if __name__ == "__main__":
                     
                     # Status indicators
                     if level <= 5:
-                        indicator = "🔴 SHUTDOWN"
+                        if status.get('shutdown_scheduled', False):
+                            indicator = "🔴 SHUTDOWN IN 2 MIN"
+                        else:
+                            indicator = "🔴 SHUTDOWN PENDING"
                     elif level <= 10:
                         indicator = "🟠 CRITICAL"
                     elif level <= 20:
@@ -422,9 +491,9 @@ if __name__ == "__main__":
                         indicator = "🟡 MONITOR"
                     else:
                         indicator = "🟢 GOOD"
-                    
-                    print(f"[{datetime.now().strftime('%H:%M:%S')}] Battery: {level}% {indicator}")
-                    
+
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] Battery: {level}% {indicator} Voltage: {status['battery_voltage']}V, ADC: {status['adc_value']}V")
+
             except KeyboardInterrupt:
                 print("\n🛑 Stopped by user.")
                 
