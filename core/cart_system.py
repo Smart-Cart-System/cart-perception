@@ -1,6 +1,7 @@
 import cv2
 import time
 import RPi.GPIO as GPIO
+import threading
 
 from hardware.camera import set_camera_properties, calculate_focus_measure
 from utils.barcode_detection import detect_barcode
@@ -14,6 +15,7 @@ from core.config import Config
 from handlers.barcode_handlers import BarcodeHandlers
 from handlers.weight_handlers import WeightHandlers
 from hardware.led import LEDController
+from hardware.apriltag_camera import ThreadedAprilTagCamera
 
 class CartSystem:
     """Main class for the cart perception system, manages barcode detection and weight tracking."""
@@ -24,9 +26,20 @@ class CartSystem:
         self.led = LEDController()
 
         # Initialize hardware
-        self.cap1, self.cap2 = self._init_cameras()
+        self._init_cameras()
         self.focus_value1 = Config.DEFAULT_FOCUS_VALUE
         self.focus_value2 = Config.DEFAULT_FOCUS_VALUE
+        
+        # Initialize AprilTag camera
+        try:
+            self.apriltag_camera = ThreadedAprilTagCamera(camera_id="/dev/cam_navigation").start()
+            self.last_location_update = 0
+            self.location_update_interval = 2.0  # Update location every 2 seconds
+            self.last_tag_id = None
+            print("[INFO] AprilTag camera initialized successfully")
+        except Exception as e:
+            print(f"[WARNING] Could not initialize AprilTag camera: {e}")
+            self.apriltag_camera = None
         
         # Autofocus management
         self.last_af_trigger_time1 = 0
@@ -79,52 +92,47 @@ class CartSystem:
         # Set startup LED effect
         self.led_action = "start"
         self.led_action_start_time = time.time()
-
+        
         try:
             while True:
+                # Get the current time once per loop
+                current_time = time.time()
+                
                 # Process frames from both cameras
                 frame1 = self.camera1.read()
                 frame2 = self.camera2.read()
                 
-                # FPS calculation
-                self.frame_count += 1
-                current_time = time.time()
-                if current_time - self.last_fps_print >= 5.0:  # Print every 5 seconds
-                    fps = self.frame_count / (current_time - self.last_fps_print)
-                    print(f"[INFO] FPS: {fps:.2f}")
-                    self.last_fps_print = current_time
-                    self.frame_count = 0
-                
                 if frame1 is None or frame2 is None:
-                    print("Error: Could not read frame from one or both cameras.")
-                    self.speaker.camera_error()
-                    self.led.red(100)  # Red LED for camera error
-                    time.sleep(0.5)  # Brief pause before retry
+                    print("[WARNING] Could not read frames")
                     continue
                 
-                # Process each frame (autofocus, barcode detection, drawing)
+                # Process each camera frame
                 processed_frame1, barcode1 = self._process_camera_frame(frame1, self.camera1, 1)
                 processed_frame2, barcode2 = self._process_camera_frame(frame2, self.camera2, 2)
                 
-                # Process barcodes from either camera (prioritize camera1 if both detect)
-                detected_barcode = barcode1 if barcode1 else barcode2
-                self._process_barcode(detected_barcode)
+                # Process detected barcodes
+                self._process_barcode(barcode1)
+                self._process_barcode(barcode2)
                 
-                # Update LED based on current state
-                self._update_led_status()
-                
-                # Check weight changes
-                current_time = time.time()
+                # Check for weight changes
                 self._check_weight_changes(current_time)
+                
+                # Update cart summary
                 self._update_cart_summary(current_time)
                 
-                # Combine frames for display and handle user input
+                # Update cart location using AprilTag
+                self._update_cart_location(current_time)
+                
+                # Update LED status
+                self._update_led_status()
+                
+                # Handle keyboard input
                 if self._handle_keyboard_input(processed_frame1, processed_frame2):
-                    break  # Exit if needed
+                    break
                     
         except Exception as e:
             self.speaker.failure()
-            print(f"[ERROR] An unexpected error occurred: {e}")        
+            print(f"[ERROR] An unexpected error occurred: {e}")
         finally:
             self._cleanup()
 
@@ -311,6 +319,10 @@ class CartSystem:
                 # Yellow pulse for item removed
                 if not self.led.animation_running:
                     self.led.yellow(100)
+            elif self.led_action == "location":
+                # Purple flash for location update
+                if not self.led.animation_running:
+                    self.led.purple(100)
             elif self.led_action == "start":
                 # Green pulse for system startup
                 if not self.led.animation_running:
@@ -339,6 +351,23 @@ class CartSystem:
             if not self.led.animation_running:
                 self.led.pulse(self.led.blue, max_intensity=100, pulse_speed=0.08, duration=999)
 
+    def _update_cart_location(self, current_time):
+        """Update cart location based on AprilTag detection"""
+        if not self.apriltag_camera or (current_time - self.last_location_update < self.location_update_interval):
+            return
+            
+        self.last_location_update = current_time
+        tag_id = self.apriltag_camera.get_latest_tag()
+        
+        if tag_id is not None and tag_id != self.last_tag_id:
+            print(f"[INFO] New location detected: Aisle {tag_id}")
+            response = self.api.update_session_location(tag_id)
+            if response:
+                self.last_tag_id = tag_id
+                # Flash LED to indicate successful location update
+                self.led_action = "location"
+                self.led_action_start_time = current_time
+
     def _cleanup(self):
         """Clean up resources before exiting."""
         print("[INFO] Cleaning up resources...")
@@ -346,6 +375,8 @@ class CartSystem:
         self.led.cleanup()
         self.camera1.release()
         self.camera2.release()
+        if self.apriltag_camera:
+            self.apriltag_camera.release()
         cv2.destroyAllWindows()
         try:
             self.weight_tracker.cleanup()

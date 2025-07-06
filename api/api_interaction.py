@@ -238,6 +238,39 @@ class CartAPI:
             print(f"Error: {str(e)}")
             return None
 
+    def update_session_location(self, aisle_id):
+        """Test updating a session's location when user moves to a new aisle"""
+        try:
+            # Prepare request data
+            location_data = {
+                "aisle_id": int(aisle_id)
+            }
+            
+            # Make API request
+            url = f"{API_URL}/session-location/{self.session_id}"
+            print(f"Sending PUT request to {url}")
+            print(f"Request data: {json.dumps(location_data, indent=2)}")
+            
+            response = requests.put(url, json=location_data, headers=self.headers)
+            
+            # Process response
+            if response.status_code == 200:
+                location_data = response.json()
+                print(f"Success! Session location updated:")
+                print(f"  Session ID: {location_data['session_id']}")
+                print(f"  Aisle ID: {location_data['aisle_id']}")
+                print(f"  Created at: {location_data['created_at']}")
+                print(f"  Updated at: {location_data['updated_at']}")
+                return location_data
+            else:
+                print(f"Error: {response.status_code}")
+                print(response.text)
+                return None
+                
+        except Exception as e:
+            print(f"Error: {str(e)}")
+            return None
+    
 if __name__ == "__main__":
     api = CartAPI()
     api.get_session_by_cart(1)
