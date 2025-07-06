@@ -1,0 +1,3 @@
+[submodule "store-navigation"]
+	path = store-navigation
+	url = https://github.com/Smart-Cart-System/store-navigation.git
