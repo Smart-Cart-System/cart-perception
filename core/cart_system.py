@@ -32,10 +32,8 @@ class CartSystem:
         
         # Initialize AprilTag camera
         try:
-            self.apriltag_camera = ThreadedAprilTagCamera(camera_id="/dev/cam_navigation").start()
-            self.last_location_update = 0
-            self.location_update_interval = 2.0  # Update location every 2 seconds
-            self.last_tag_id = None
+            self.apriltag_camera = ThreadedAprilTagCamera(camera_id="/dev/cam_navigation")
+            self.apriltag_camera.start()
             print("[INFO] AprilTag camera initialized successfully")
         except Exception as e:
             print(f"[WARNING] Could not initialize AprilTag camera: {e}")
@@ -70,6 +68,9 @@ class CartSystem:
         self.led_action = None
         self.led_action_start_time = 0
         self.led_action_duration = 3  # Duration in seconds for action-specific LED effects
+
+        # Apriltag id
+        self.latest_apriltag_id = None
 
     def _init_cameras(self):
         """Initialize and configure both cameras."""
@@ -110,6 +111,16 @@ class CartSystem:
                 processed_frame1, barcode1 = self._process_camera_frame(frame1, self.camera1, 1)
                 processed_frame2, barcode2 = self._process_camera_frame(frame2, self.camera2, 2)
                 
+                # process apriltag id
+                if self.apriltag_camera is not None:
+                    tag_id = self.apriltag_camera.get_latest_tag()
+                    if tag_id is not None and tag_id != self.latest_apriltag_id:
+                        self.latest_apriltag_id = tag_id
+                        print(f"[INFO] Detected AprilTag ID: {self.latest_apriltag_id}")
+                        self.api.update_session_location(self.latest_apriltag_id)
+                else:
+                    print("[WARNING] AprilTag camera not initialized")
+
                 # Process detected barcodes
                 self._process_barcode(barcode1)
                 self._process_barcode(barcode2)
@@ -119,9 +130,6 @@ class CartSystem:
                 
                 # Update cart summary
                 self._update_cart_summary(current_time)
-                
-                # Update cart location using AprilTag
-                self._update_cart_location(current_time)
                 
                 # Update LED status
                 self._update_led_status()
@@ -185,7 +193,7 @@ class CartSystem:
             self.last_scan_time = time.time()
             
         # Handle barcode based on current state
-        if self.state == CartState.WAITING_FOR_SCAN:
+        if self.state == CartState.UNSCANNED_ADDED_ITEMS:
             BarcodeHandlers.handle_during_scan_wait(self, barcode_number)
         elif self.state == CartState.WAITING_FOR_REMOVAL_SCAN:
             BarcodeHandlers.handle_during_removal_wait(self, barcode_number)
@@ -224,7 +232,7 @@ class CartSystem:
                 self.led_action = "remove"
                 self.led_action_start_time = time.time()
                 WeightHandlers.handle_weight_decrease(self, weight_diff, current_actual_weight)
-        elif self.state == CartState.WAITING_FOR_SCAN:
+        elif self.state == CartState.UNSCANNED_ADDED_ITEMS:
             WeightHandlers.check_weight_normalized(self, current_actual_weight)
 
     def _update_cart_summary(self, current_time):
@@ -235,7 +243,7 @@ class CartSystem:
         self.last_cart_summary = current_time
         print("\n" + self.cart.get_cart_summary() + "\n")
         
-        if self.state == CartState.WAITING_FOR_SCAN:
+        if self.state == CartState.UNSCANNED_ADDED_ITEMS:
             print("⚠️ Please scan the barcode for the recently added item!")
         elif self.state == CartState.WAITING_FOR_REMOVAL_SCAN:
             print("⚠️ Please scan the barcode of the removed item!")
@@ -336,7 +344,7 @@ class CartSystem:
         # Default state-based LED behavior
         if self.state == CartState.NORMAL:
             self.led.white(100)
-        elif self.state == CartState.WAITING_FOR_SCAN:
+        elif self.state == CartState.UNSCANNED_ADDED_ITEMS:
             # Waiting for barcode scan - loading animation with orange
             if not self.led.animation_running:
                 self.led.loading(max_intensity=90, fade_speed=0.01, duration=0)  # Continuous until state changes
@@ -350,23 +358,6 @@ class CartSystem:
             # Pulse blue to indicate unscanned items
             if not self.led.animation_running:
                 self.led.pulse(self.led.blue, max_intensity=100, pulse_speed=0.08, duration=999)
-
-    def _update_cart_location(self, current_time):
-        """Update cart location based on AprilTag detection"""
-        if not self.apriltag_camera or (current_time - self.last_location_update < self.location_update_interval):
-            return
-            
-        self.last_location_update = current_time
-        tag_id = self.apriltag_camera.get_latest_tag()
-        
-        if tag_id is not None and tag_id != self.last_tag_id:
-            print(f"[INFO] New location detected: Aisle {tag_id}")
-            response = self.api.update_session_location(tag_id)
-            if response:
-                self.last_tag_id = tag_id
-                # Flash LED to indicate successful location update
-                self.led_action = "location"
-                self.led_action_start_time = current_time
 
     def _cleanup(self):
         """Clean up resources before exiting."""

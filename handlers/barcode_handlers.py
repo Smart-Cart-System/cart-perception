@@ -8,11 +8,11 @@ class BarcodeHandlers:
     def handle_during_scan_wait(system, barcode_number):
         """Handle barcode scan when waiting for an item to be scanned after weight addition."""
         print(f"Barcode scanned after weight addition: {barcode_number}")
-        system.api.add_item_to_cart(barcode_number, system.unscanned_weight)
-        system.cart.add_item(barcode_number, system.unscanned_weight)
-        system.state = CartState.NORMAL
-        system.unscanned_weight = 0
-        system.buzzer.item_added()
+        # system.api.add_item_to_cart(barcode_number, system.unscanned_weight)
+        # system.cart.add_item(barcode_number, system.unscanned_weight)
+        # system.state = CartState.NORMAL
+        # system.unscanned_weight = 0
+        system.speaker.warning()
 
     @staticmethod
     def handle_during_removal_wait(system, barcode_number):
@@ -27,7 +27,7 @@ class BarcodeHandlers:
                 break
         
         if found:
-            system.speaker.item_removed()
+            system.speaker.warning().item_removed()
             system.state = CartState.NORMAL
             system.removal_candidates = []
             time.sleep(2)  # Wait for user to see the confirmation

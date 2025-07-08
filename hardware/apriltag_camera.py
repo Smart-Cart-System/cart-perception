@@ -96,3 +96,26 @@ class ThreadedAprilTagCamera:
         if self.thread.is_alive():
             self.thread.join()
         self.cap.release()
+
+if __name__ == "__main__":
+    camera = ThreadedAprilTagCamera()
+    camera.start()
+    
+    try:
+        while True:
+            tag_id = camera.get_latest_tag()
+            frame = camera.get_frame()
+            
+            if frame is not None:
+                # cv2.imshow("AprilTag Camera", frame)
+                if tag_id is not None:
+                    print(f"Detected Tag ID: {tag_id}")
+                else:
+                    print("No tags detected")
+                
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+    finally:
+        camera.release()
+        cv2.destroyAllWindows()
+        print("Camera released and window closed.")

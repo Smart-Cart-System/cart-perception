@@ -3,10 +3,9 @@ Hardware interface components for the cart perception system.
 Provides classes for interacting with physical hardware devices.
 """
 
-from .buzzer import BuzzerUtil
 from .weight_tracking import WeightTracker
 from .camera import set_camera_properties, calculate_focus_measure
 from .speaker import SpeakerUtil
 from .led import LEDController
 
-__all__ = ['BuzzerUtil', 'WeightTracker', 'set_camera_properties', 'calculate_focus_measure', 'SpeakerUtil', 'LEDController']
+__all__ = ['WeightTracker', 'set_camera_properties', 'calculate_focus_measure', 'SpeakerUtil', 'LEDController']

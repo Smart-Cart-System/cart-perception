@@ -8,7 +8,7 @@ from collections import deque
 class WeightTracker:
     """Class for tracking weight changes using HX711 sensor with background thread."""
     
-    def __init__(self, dout_pin=5, pd_sck_pin=6, reference_unit=216, weight_threshold=15):
+    def __init__(self, dout_pin=5, pd_sck_pin=6, reference_unit=53, weight_threshold=50):
         """Initialize the weight tracking system with background thread."""
         # Initialize HX711 sensor
         self.hx = HX711(dout_pin, pd_sck_pin)

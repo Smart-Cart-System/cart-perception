@@ -32,13 +32,13 @@ class WeightHandlers:
     @staticmethod
     def handle_unscanned_item_addition(system, weight_diff):
         """Handle addition of an item without prior barcode scan."""
-        if system.state == CartState.WAITING_FOR_SCAN:
+        if system.state == CartState.UNSCANNED_ADDED_ITEMS:
             # Add to the unscanned weight
             system.unscanned_weight += weight_diff
         else:
             # Start waiting for scan
             system.api.report_fraud_warning(Ambigous.ADDED)
-            system.state = CartState.WAITING_FOR_SCAN
+            system.state = CartState.UNSCANNED_ADDED_ITEMS
             system.unscanned_weight = weight_diff
         
         # Prompt user to scan barcode
@@ -50,7 +50,7 @@ class WeightHandlers:
     def handle_weight_decrease(system, weight_diff, current_weight):
         """Handle a weight decrease event."""
         # If waiting for scan, check if weight returned to normal
-        if system.state == CartState.WAITING_FOR_SCAN:
+        if system.state == CartState.UNSCANNED_ADDED_ITEMS:
             expected_weight = system.cart.total_expected_weight
             if abs(current_weight - expected_weight) < Config.WEIGHT_TOLERANCE:
                 print("Weight returned to normal, cancelling scan request")
