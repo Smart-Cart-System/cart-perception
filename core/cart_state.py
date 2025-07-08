@@ -5,3 +5,6 @@ class CartState(Enum):
     NORMAL = auto()
     UNSCANNED_ADDED_ITEMS = auto()
     WAITING_FOR_REMOVAL_SCAN = auto()
+    PAYMENT_PROCESSING = auto()  # Added for payment processing state
+    FRAUD_DETECTED = auto()      # Added for fraud detection
+    IDLE = auto()                # Added for idle state

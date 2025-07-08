@@ -26,7 +26,10 @@ class Config:
 
     # Hardware settings
     CART_ID: int = os.getenv('CART_ID')
-    
+
+    # WebSocket server URL
+    WEBSOCKET_SERVER_URL: str = os.getenv('WEBSOCKET_SERVER_URL', f'wss://api.duckycart.me:8000/ws/hardware/{CART_ID}')
+
     @classmethod
     def load_from_env(cls, env_file: Optional[str] = None) -> 'Config':
         """Load configuration from environment file"""

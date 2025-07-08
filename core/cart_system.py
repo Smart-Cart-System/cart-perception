@@ -211,6 +211,11 @@ class CartSystem:
         # Check for scan timeout
         self._check_scan_timeout(current_time)
         
+        # Special handling for payment processing state (fraud monitoring)
+        if self.state == CartState.PAYMENT_PROCESSING:
+            self._check_fraud_during_payment(current_actual_weight)
+            return
+        
         # Check for special case: item put back during removal wait
         if self.state == CartState.WAITING_FOR_REMOVAL_SCAN:
             WeightHandlers.check_item_returned(self, current_actual_weight)
@@ -327,10 +332,6 @@ class CartSystem:
                 # Yellow pulse for item removed
                 if not self.led.animation_running:
                     self.led.yellow(100)
-            elif self.led_action == "location":
-                # Purple flash for location update
-                if not self.led.animation_running:
-                    self.led.purple(100)
             elif self.led_action == "start":
                 # Green pulse for system startup
                 if not self.led.animation_running:
@@ -358,6 +359,86 @@ class CartSystem:
             # Pulse blue to indicate unscanned items
             if not self.led.animation_running:
                 self.led.pulse(self.led.blue, max_intensity=100, pulse_speed=0.08, duration=999)
+
+    def start(self):
+        """Start the cart system when a session begins"""
+        print("[INFO] Starting cart system - session activated")
+        self.speaker.quack()
+        
+        # Set LED to green for active session
+        self.led.set_normal_mode()
+        
+        # Reset/initialize cart tracking components
+        self.weight_tracker.reset()
+        self.cart.clear_cart()
+        
+        # Reset state and variables
+        self.state = CartState.NORMAL
+        self.unscanned_weight = 0
+        self.removal_candidates = []
+        self.removal_weight_diff = 0
+        self.expected_weight_before_removal = 0
+        
+        # Reset timing variables
+        self.last_weight_check = time.time()
+        self.last_cart_summary = time.time()
+        self.last_fps_print = time.time()
+        self.frame_count = 0
+        self.last_scan_time = 0
+        
+        # Reset AprilTag tracking
+        self.latest_apriltag_id = None
+        
+        # Start/restart cameras if needed
+        if not self.camera1.is_running:
+            self.camera1.start()
+        
+        if not self.camera2.is_running:
+            self.camera2.start()
+            
+        if self.apriltag_camera and not self.apriltag_camera.is_running:
+            self.apriltag_camera.start()
+
+    def shutdown(self):
+        """Shutdown the cart system at the end of a session"""
+        print("[INFO] Shutting down cart system")
+        
+        # Stop cameras
+        if hasattr(self, 'camera1') and self.camera1.is_running:
+            self.camera1.stop()
+        
+        if hasattr(self, 'camera2') and self.camera2.is_running:
+            self.camera2.stop()
+            
+        # Stop AprilTag camera if running
+        if hasattr(self, 'apriltag_camera') and self.apriltag_camera and self.apriltag_camera.is_running:
+            self.apriltag_camera.stop()
+        
+        # Reset tracking components
+        self.cart.clear_cart()
+        self.weight_tracker.reset()
+        
+        # Reset state variables
+        self.state = CartState.IDLE
+        self.unscanned_weight = 0
+        self.removal_candidates = []
+        self.latest_apriltag_id = None
+        
+        # Turn off LED
+        self.led.turn_off()
+        
+        # Play end session sound
+        self.speaker.play_sound("checkout.mp3")
+
+    def disable_item_operations(self):
+        """Disable add/remove item operations during payment"""
+        print("[INFO] Item operations disabled - payment in process")
+        self.state = CartState.PAYMENT_PROCESSING
+    
+    def enable_fraud_monitoring(self):
+        """Enable fraud monitoring mode during payment"""
+        print("[INFO] Fraud monitoring enabled - watching for unauthorized changes")
+        self.state = CartState.PAYMENT_PROCESSING
 
     def _cleanup(self):
         """Clean up resources before exiting."""

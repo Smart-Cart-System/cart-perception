@@ -292,3 +292,19 @@ class LEDController:
     def cleanup(self):
         self.off()
         print("[INFO] LED Controller cleaned up")
+    
+    def turn_off(self):
+        """Turn off the LED"""
+        self.off()
+    
+    def start_pulse_white(self):
+        """Start pulsing white LED animation for QR code display"""
+        self.pulse(self.white, max_intensity=100, pulse_speed=0.05, duration=0)  # 0 for infinite duration
+    
+    def start_loading_animation(self):
+        """Start loading animation for payment processing"""
+        self.loading(max_intensity=100, fade_speed=0.01, duration=0)  # 0 for infinite duration
+    
+    def set_normal_mode(self):
+        """Set LED to normal operation mode"""
+        self.white(intensity=100)  # Use white to indicate active shopping session
