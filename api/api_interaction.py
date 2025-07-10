@@ -27,7 +27,7 @@ class CartAPI:
             "X-API-Key": API_KEY,
             "Content-Type": "application/json"
         }
-        self.session_id = self.get_session_by_cart(cart_id) if cart_id else None
+        # self.session_id = self.get_session_by_cart(cart_id) if cart_id else None
 
     def get_session_by_cart(self, cart_id):
         """Test getting an active session by cart ID"""

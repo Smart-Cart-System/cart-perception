@@ -1,6 +1,6 @@
-import RPi.GPIO as GPIO
 import threading
 import time
+from hardware.gpio_manager import gpio
 
 class BuzzerUtil:
     """Utility class for playing different buzzer sounds for cart events."""
@@ -8,12 +8,10 @@ class BuzzerUtil:
     def __init__(self, buzzer_pin=23):
         """Initialize the buzzer interface."""
         self.buzzer_pin = buzzer_pin
-        GPIO.setwarnings(False)
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.buzzer_pin, GPIO.OUT)
+        gpio.setup(self.buzzer_pin, gpio.OUT)
         self.is_busy = False
         self.stop_requested = False
-        GPIO.output(self.buzzer_pin, GPIO.LOW)  # Ensure buzzer is off initially
+        gpio.output(self.buzzer_pin, gpio.LOW)  # Ensure buzzer is off initially
     
     def _play_pattern(self, pattern):
         """Play a specific beep pattern.
@@ -29,11 +27,11 @@ class BuzzerUtil:
             if self.stop_requested:
                 break
                 
-            GPIO.output(self.buzzer_pin, state)
+            gpio.output(self.buzzer_pin, state)
             time.sleep(duration)
         
         # Ensure buzzer is turned off after pattern completes
-        GPIO.output(self.buzzer_pin, GPIO.LOW)
+        gpio.output(self.buzzer_pin, gpio.LOW)
         self.is_busy = False
     
     def play_async(self, pattern):
@@ -42,62 +40,62 @@ class BuzzerUtil:
             self.stop()  # Stop any currently playing pattern
             time.sleep(0.1)  # Small delay to ensure it stops
             
-        thread = threading.Thread(target=self._play_pattern, args=(pattern,), daemon=True)
+        thread = threading.Thread(target=self._play_pattern, args=(pattern,), daemon=True, name="BuzzerThread")
         thread.start()
     
     def stop(self):
         """Stop any currently playing pattern."""
         if self.is_busy:
             self.stop_requested = True
-            GPIO.output(self.buzzer_pin, GPIO.LOW)
+            gpio.output(self.buzzer_pin, gpio.LOW)
     
     # Pre-defined sound patterns
     def item_scanned(self):
         """Sound for when an item barcode is scanned."""
-        pattern = [(GPIO.HIGH, 0.05), (GPIO.LOW, 0.05)]
+        pattern = [(gpio.HIGH, 0.05), (gpio.LOW, 0.05)]
         self.play_async(pattern)
     
     def item_added(self):
         """Sound for when an item is added to cart."""
-        pattern = [(GPIO.HIGH, 0.05), (GPIO.LOW, 0.05), (GPIO.HIGH, 0.05), (GPIO.LOW, 0.05)]
+        pattern = [(gpio.HIGH, 0.05), (gpio.LOW, 0.05), (gpio.HIGH, 0.05), (gpio.LOW, 0.05)]
         self.play_async(pattern)
     
     def item_removed(self):
         """Sound for when an item is removed from cart."""
-        pattern = [(GPIO.HIGH, 0.2), (GPIO.LOW, 0.1), (GPIO.HIGH, 0.1), (GPIO.LOW, 0.05)]
+        pattern = [(gpio.HIGH, 0.2), (gpio.LOW, 0.1), (gpio.HIGH, 0.1), (gpio.LOW, 0.05)]
         self.play_async(pattern)
     
     def error_occurred(self):
         """Sound for when an error occurs."""
         pattern = [
-            (GPIO.HIGH, 0.2), (GPIO.LOW, 0.1),
-            (GPIO.HIGH, 0.2), (GPIO.LOW, 0.1),
-            (GPIO.HIGH, 0.3), (GPIO.LOW, 0.05)
+            (gpio.HIGH, 0.2), (gpio.LOW, 0.1),
+            (gpio.HIGH, 0.2), (gpio.LOW, 0.1),
+            (gpio.HIGH, 0.3), (gpio.LOW, 0.05)
         ]
         self.play_async(pattern)
     
     def waiting_for_scan(self):
         """Sound to indicate waiting for barcode scan."""
         pattern = [
-            (GPIO.HIGH, 0.05), (GPIO.LOW, 0.2),
-            (GPIO.HIGH, 0.05), (GPIO.LOW, 0.2),
-            (GPIO.HIGH, 0.05), (GPIO.LOW, 0.05)
+            (gpio.HIGH, 0.05), (gpio.LOW, 0.2),
+            (gpio.HIGH, 0.05), (gpio.LOW, 0.2),
+            (gpio.HIGH, 0.05), (gpio.LOW, 0.05)
         ]
         self.play_async(pattern)
     
     def ambiguous_removal(self):
         """Sound for ambiguous item removal."""
         pattern = [
-            (GPIO.HIGH, 0.1), (GPIO.LOW, 0.1),
-            (GPIO.HIGH, 0.1), (GPIO.LOW, 0.1),
-            (GPIO.HIGH, 0.3), (GPIO.LOW, 0.05)
+            (gpio.HIGH, 0.1), (gpio.LOW, 0.1),
+            (gpio.HIGH, 0.1), (gpio.LOW, 0.1),
+            (gpio.HIGH, 0.3), (gpio.LOW, 0.05)
         ]
         self.play_async(pattern)
     
     def cleanup(self):
         """Clean up resources, should be called before program exit."""
         self.stop()
-        # Don't call GPIO.cleanup() here as it might be needed by other components
+        # Don't cleanup GPIO pin, let the manager handle it
 
 
 # Simple test if this file is run directly
@@ -129,4 +127,4 @@ if __name__ == "__main__":
     time.sleep(1.5)
     
     print("Test complete!")
-    GPIO.cleanup()
+    gpio.cleanup()

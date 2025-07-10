@@ -1,9 +1,9 @@
 import time
 import threading
 import statistics
-import RPi.GPIO as GPIO
-from hardware.hx711v0_5_1 import HX711
 from collections import deque
+from hardware.gpio_manager import gpio
+from hardware.hx711v0_5_1 import HX711
 
 class WeightTracker:
     """Class for tracking weight changes using HX711 sensor with background thread."""
@@ -29,7 +29,7 @@ class WeightTracker:
         self.recent_readings = deque(maxlen=10)
         
         # Start background thread
-        self.thread = threading.Thread(target=self._weight_monitoring_thread, daemon=True)
+        self.thread = threading.Thread(target=self._weight_monitoring_thread, daemon=True, name="WeightTrackerThread")
         self.thread.start()
         
         print("[INFO] Weight tracking system initialized (threaded mode)")
@@ -114,4 +114,4 @@ class WeightTracker:
         self.running = False  # Signal thread to stop
         if self.thread.is_alive():
             self.thread.join(timeout=1.0)  # Wait for thread to end
-        GPIO.cleanup()
+        # Don't call GPIO.cleanup() directly

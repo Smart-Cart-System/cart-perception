@@ -5,6 +5,8 @@ import time
 import logging
 from core.config import Config
 from core.cart_state import CartState
+import ssl
+import threading
 
 logging.basicConfig(level=logging.INFO, 
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -26,27 +28,73 @@ class CartWebSocket:
         self.session_id = None
         self.running = True
         self.QR_ACTIVE_DURATION = 60  # QR active for 1 minute (in seconds)
+        
+        # SSL/TLS context configuration
+        self.ssl_context = ssl.create_default_context()
+        self.ssl_context.check_hostname = False
+        self.ssl_context.verify_mode = ssl.CERT_NONE  # Disable certificate verification for development
     
     async def connect(self):
         """Connect to the WebSocket server with auto-reconnect functionality"""
+        connection_attempt = 0
+        ssl_error_count = 0
+        
         while self.running:
             try:
                 logger.info(f"Connecting to {self.server_url}")
-                async with websockets.connect(self.server_url) as websocket:
+                connection_attempt += 1
+                
+                # Connection options
+                connect_kwargs = {}
+                
+                # Add SSL context for secure connections
+                if self.server_url.startswith('wss://'):
+                    connect_kwargs['ssl'] = self.ssl_context
+                
+                async with websockets.connect(
+                    self.server_url,
+                    **connect_kwargs
+                ) as websocket:
                     self.websocket = websocket
                     self.connected = True
                     logger.info("Connected to WebSocket server")
                     self.reconnect_interval = 5  # Reset reconnect interval on successful connection
+                    ssl_error_count = 0  # Reset SSL error count
                     await self._handle_messages()
+                    
+            except ssl.SSLError as e:
+                self.connected = False
+                ssl_error_count += 1
+                logger.error(f"SSL error: {str(e)}")
+                
+                # If we get multiple SSL errors, try switching to non-secure connection
+                if ssl_error_count >= 2 and self.server_url.startswith('wss://'):
+                    logger.warning("Multiple SSL errors. Trying non-secure WebSocket connection...")
+                    self.server_url = self.server_url.replace('wss://', 'ws://')
+                    logger.info(f"Switched to non-secure URL: {self.server_url}")
+                    ssl_error_count = 0  # Reset the counter
+                    await asyncio.sleep(2)  # Short delay before retry
+                else:
+                    await asyncio.sleep(self.reconnect_interval)
+                    
             except (websockets.exceptions.ConnectionClosed, 
                     websockets.exceptions.WebSocketException,
                     ConnectionRefusedError) as e:
                 self.connected = False
                 logger.error(f"WebSocket connection error: {str(e)}")
+                
+                # If we get multiple connection errors with wss://, try switching to ws://
+                if connection_attempt >= 3 and self.server_url.startswith('wss://'):
+                    logger.warning("Multiple connection failures. Trying non-secure WebSocket connection...")
+                    self.server_url = self.server_url.replace('wss://', 'ws://')
+                    logger.info(f"Switched to non-secure URL: {self.server_url}")
+                    connection_attempt = 0  # Reset the counter
+                
                 logger.info(f"Reconnecting in {self.reconnect_interval} seconds...")
                 await asyncio.sleep(self.reconnect_interval)
                 # Exponential backoff with maximum limit
                 self.reconnect_interval = min(self.reconnect_interval * 1.5, self.max_reconnect_interval)
+                
             except Exception as e:
                 self.connected = False
                 logger.error(f"Unexpected error: {str(e)}")
@@ -99,35 +147,44 @@ class CartWebSocket:
         """Handle generate_qr command"""
         logger.info("Preparing cart for QR code display")
         
-        # Turn off all systems except for LED
-        # if self.cart_system:
-        #     await self._shutdown_cart_system()
-        
-        # Set LED to pulse white for 1 minute
-        if self.led_controller:
-            self.led_controller.pulse(color='white', pulse_speed=0.02 ,duration=self.QR_ACTIVE_DURATION)
-            
+        # if self.led_controller:
+        #     self.led_controller.pulse(self.led_controller.white, pulse_speed=0.06 ,duration=self.QR_ACTIVE_DURATION)
+        # List all currently active threads
+        threads = threading.enumerate()
+
+        # Print thread information
+        for thread in threads:
+            print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
+
+
     async def _handle_session_started(self, session_id):
         """Handle session_started command"""
-        # if not session_id:
-        #     logger.error("Received session_started without session ID")
-        #     return
-            
-        # self.session_id = session_id
-        # logger.info(f"Starting cart session with ID: {session_id}")
+        logger.info(f"Starting new session with ID: {session_id}")
         
-        # Activate cart system
+        # Store the session ID
+        self.session_id = session_id
+        
+        # Set session ID in the API
+        if self.cart_system and hasattr(self.cart_system, 'api'):
+            self.cart_system.api.session_id = session_id
+            logger.info(f"API session ID set to {session_id}")
+        
+        # Stop any running LED animations
+        # if self.led_controller:
+        #     self.led_controller.stop_current_animation()
+
+        # Start the cart system
         if self.cart_system:
             await self._start_cart_system()
-            # Cancel LED timeout if it was scheduled
-            # self.qr_active_time = None
-            
-            # Change LED to normal operation mode
-            # if self.led_controller:
-            #     self.led_controller.set_normal_mode()
-            
-            # Initialize and start the cart system
-    
+
+        # List all currently active threads
+        threads = threading.enumerate()
+
+        # Print thread information
+        for thread in threads:
+            print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
+
+
     async def _handle_payment_created(self, payment_id):
         """Handle payment_created command"""
         logger.info(f"Payment created with ID: {payment_id}")
@@ -140,28 +197,46 @@ class CartWebSocket:
             self.cart_system.enable_fraud_monitoring()
             
             # Set LED to loading animation
-            if self.led_controller:
-                self.led_controller.start_loading_animation()
+            # if self.led_controller:
+            #     self.led_controller.stop_current_animation()
+            #     self.led_controller.start_loading_animation()
     
+        # List all currently active threads
+        threads = threading.enumerate()
+
+        # Print thread information
+        for thread in threads:
+            print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
+
+
     async def _handle_end_session(self, session_id):
         """Handle end_session command"""
         logger.info(f"Ending session with ID: {session_id}")
         
+        # Turn off LED
+        # if self.led_controller:
+        #     self.led_controller.stop_current_animation()
+        #     self.led_controller.turn_off()
         # Shutdown cart system
         if self.cart_system:
             await self._shutdown_cart_system()
         
-        # Turn off LED
-        if self.led_controller:
-            self.led_controller.turn_off()
-        
         self.session_id = None
-    
+
+        # List all currently active threads
+        threads = threading.enumerate()
+
+        # Print thread information
+        for thread in threads:
+            print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
+
+
     async def _start_cart_system(self):
         """Start the cart system"""
         if hasattr(self.cart_system, 'start'):
-            # Run cart system start method
+            # Run cart system start method - now runs in its own thread
             self.cart_system.start()
+            logger.info("Cart system started in background thread")
         else:
             logger.warning("Cart system doesn't have a start method")
     

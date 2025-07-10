@@ -111,7 +111,7 @@ class BatteryService:
         self.AVERAGING_DURATION = 20  # Duration in seconds for averaging
         
         # Voltage range for battery level calculation
-        self.MIN_VOLTAGE = 10.5
+        self.MIN_VOLTAGE = 9.7
         self.MAX_VOLTAGE = 12.6
 
     def read_adc(self) -> int:
@@ -354,7 +354,7 @@ class BatteryService:
         """Start battery monitoring service."""
         if not self.monitoring_active:
             self.monitoring_active = True
-            self.monitoring_thread = threading.Thread(target=self.monitor_battery, daemon=True)
+            self.monitoring_thread = threading.Thread(target=self.monitor_battery, daemon=True, name="BatteryMonitoringThread")
             self.monitoring_thread.start()
             self.logger.info("Battery monitoring service started")
             return True

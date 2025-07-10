@@ -71,6 +71,10 @@ class CartSystem:
 
         # Apriltag id
         self.latest_apriltag_id = None
+        
+        # Thread control
+        self.running = False
+        self.main_thread = None
 
     def _init_cameras(self):
         """Initialize and configure both cameras."""
@@ -95,7 +99,7 @@ class CartSystem:
         self.led_action_start_time = time.time()
         
         try:
-            while True:
+            while self.running:  # Check the running flag
                 # Get the current time once per loop
                 current_time = time.time()
                 
@@ -142,7 +146,8 @@ class CartSystem:
             self.speaker.failure()
             print(f"[ERROR] An unexpected error occurred: {e}")
         finally:
-            self._cleanup()
+            if self.running:  # Only cleanup if not already being cleaned up
+                self._cleanup()
 
     def _process_camera_frame(self, frame, camera, camera_num):
         """Process a single camera frame for autofocus and barcode detection."""
@@ -213,7 +218,7 @@ class CartSystem:
         
         # Special handling for payment processing state (fraud monitoring)
         if self.state == CartState.PAYMENT_PROCESSING:
-            self._check_fraud_during_payment(current_actual_weight)
+            # self._check_fraud_during_payment(current_actual_weight)
             return
         
         # Check for special case: item put back during removal wait
@@ -249,7 +254,7 @@ class CartSystem:
         print("\n" + self.cart.get_cart_summary() + "\n")
         
         if self.state == CartState.UNSCANNED_ADDED_ITEMS:
-            print("⚠️ Please scan the barcode for the recently added item!")
+            print("⚠️ Please remove the item from the cart and scan its barcode!")
         elif self.state == CartState.WAITING_FOR_REMOVAL_SCAN:
             print("⚠️ Please scan the barcode of the removed item!")
             print(f"Possible items: {[b for b, _ in self.removal_candidates]}")
@@ -363,7 +368,6 @@ class CartSystem:
     def start(self):
         """Start the cart system when a session begins"""
         print("[INFO] Starting cart system - session activated")
-        self.speaker.quack()
         
         # Set LED to green for active session
         self.led.set_normal_mode()
@@ -399,9 +403,26 @@ class CartSystem:
         if self.apriltag_camera and not self.apriltag_camera.is_running:
             self.apriltag_camera.start()
 
+        # Start the main loop in a separate thread
+        self.running = True
+        self.main_thread = threading.Thread(target=self.run, daemon=True, name="CartSystemMainLoop")
+        self.main_thread.start()
+        
+        print("[INFO] Cart system started successfully")
+
     def shutdown(self):
         """Shutdown the cart system at the end of a session"""
         print("[INFO] Shutting down cart system")
+        # Play end session sound
+        # self.speaker.play_sound("checkout.mp3")
+        
+        # Stop the main loop thread
+        self.running = False
+        if self.main_thread and self.main_thread.is_alive():
+            print("[INFO] Waiting for main thread to terminate...")
+            self.main_thread.join(timeout=5)  # Wait up to 5 seconds for thread to end
+            if self.main_thread.is_alive():
+                print("[WARNING] Main thread did not terminate cleanly")
         
         # Stop cameras
         if hasattr(self, 'camera1') and self.camera1.is_running:
@@ -416,8 +437,11 @@ class CartSystem:
         
         # Reset tracking components
         self.cart.clear_cart()
-        self.weight_tracker.reset()
-        
+
+        self.weight_tracker.is_running = False
+        if self.weight_tracker.thread and self.weight_tracker.thread.is_alive():
+            self.weight_tracker.thread.join(timeout=5)
+            self.weight_tracker.thread = None
         # Reset state variables
         self.state = CartState.IDLE
         self.unscanned_weight = 0
@@ -427,8 +451,6 @@ class CartSystem:
         # Turn off LED
         self.led.turn_off()
         
-        # Play end session sound
-        self.speaker.play_sound("checkout.mp3")
 
     def disable_item_operations(self):
         """Disable add/remove item operations during payment"""
@@ -443,7 +465,6 @@ class CartSystem:
     def _cleanup(self):
         """Clean up resources before exiting."""
         print("[INFO] Cleaning up resources...")
-        self.speaker.cleanup()
         self.led.cleanup()
         self.camera1.release()
         self.camera2.release()

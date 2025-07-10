@@ -1,6 +1,6 @@
-import RPi.GPIO as GPIO
 import time
 import threading
+from hardware.gpio_manager import gpio
 
 class LEDController:
     """LED Controller with PWM support for RGB LED control."""
@@ -20,16 +20,14 @@ class LEDController:
         self.pwm_frequency = pwm_frequency
         
         # Initialize GPIO
-        GPIO.setwarnings(False)
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.red_pin, GPIO.OUT)
-        GPIO.setup(self.green_pin, GPIO.OUT)
-        GPIO.setup(self.blue_pin, GPIO.OUT)
+        gpio.setup(self.red_pin, gpio.OUT)
+        gpio.setup(self.green_pin, gpio.OUT)
+        gpio.setup(self.blue_pin, gpio.OUT)
         
-        # Initialize PWM
-        self.red_pwm = GPIO.PWM(self.red_pin, self.pwm_frequency)
-        self.green_pwm = GPIO.PWM(self.green_pin, self.pwm_frequency)
-        self.blue_pwm = GPIO.PWM(self.blue_pin, self.pwm_frequency)
+        # Initialize PWM - use the GPIO manager to create or get existing PWM objects
+        self.red_pwm = gpio.create_pwm(self.red_pin, self.pwm_frequency)
+        self.green_pwm = gpio.create_pwm(self.green_pin, self.pwm_frequency)
+        self.blue_pwm = gpio.create_pwm(self.blue_pin, self.pwm_frequency)
         
         # Start PWM with 0 duty cycle (LED off)
         self.red_pwm.start(0)
@@ -122,6 +120,8 @@ class LEDController:
                     # Cannot join current thread
                     pass
             self.animation_running = False
+            # Clear the reference to the old thread
+            self.animation_thread = None
     
     def loading(self, max_intensity=100, fade_speed=0.01, duration=0):
         """Create a loading animation by fading orange color in and out continuously.
@@ -290,7 +290,11 @@ class LEDController:
         return self  # Enable method chaining
     
     def cleanup(self):
+        """Clean up resources."""
         self.off()
+        
+        # Let the GPIO manager handle stopping PWM objects
+        # We don't call stop() directly on the PWM objects
         print("[INFO] LED Controller cleaned up")
     
     def turn_off(self):

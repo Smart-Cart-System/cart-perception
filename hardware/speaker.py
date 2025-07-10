@@ -36,6 +36,9 @@ class SpeakerUtil:
         # If sound_dir is provided, use it as the base directory for sounds
         self.sound_dir = sound_dir
         
+        # Add a reference to the current sound thread
+        self.current_sound_thread = None
+        
         # Load sounds
         self._load_sounds()
     
@@ -89,8 +92,19 @@ class SpeakerUtil:
             self.stop()  # Stop any currently playing sound
         
         if sound_name in self.SOUND_PATHS:
-            thread = threading.Thread(target=self._play_sound, args=(sound_name,), daemon=True)
-            thread.start()
+            # Clean up any previous thread that might still be running
+            if self.current_sound_thread and self.current_sound_thread.is_alive():
+                self.stop()
+                self.current_sound_thread.join(timeout=0.5)
+                
+            # Create and start the new thread
+            self.current_sound_thread = threading.Thread(
+                target=self._play_sound, 
+                args=(sound_name,), 
+                daemon=True, 
+                name=f"SpeakerThread-{sound_name}"
+            )
+            self.current_sound_thread.start()
         else:
             print(f"Warning: Unknown sound name: {sound_name}")
             print(f"Available sounds: {list(self.SOUND_PATHS.keys())}")
@@ -167,4 +181,13 @@ class SpeakerUtil:
     def cleanup(self):
         """Clean up resources, should be called before program exit."""
         self.stop()
+        
+        # Wait for any active sound thread to finish
+        if self.current_sound_thread and self.current_sound_thread.is_alive():
+            print(f"Waiting for sound thread {self.current_sound_thread.name} to finish...")
+            self.current_sound_thread.join(timeout=1.0)
+            if self.current_sound_thread.is_alive():
+                print(f"Warning: Sound thread {self.current_sound_thread.name} did not terminate cleanly")
+                
         pygame.mixer.quit()
+        print("[INFO] Speaker resources cleaned up")

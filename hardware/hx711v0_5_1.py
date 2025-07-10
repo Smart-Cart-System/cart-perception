@@ -1,21 +1,19 @@
-import RPi.GPIO as GPIO
 import time
 import threading
+from hardware.gpio_manager import gpio
 
 class HX711:
 
     def __init__(self, dout, pd_sck, gain=128):
         self.PD_SCK = pd_sck
-
         self.DOUT = dout
 
         # Mutex for reading from the HX711, in case multiple threads in client
         # software try to access get values from the class at the same time.
         self.readLock = threading.Lock()
         
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.PD_SCK, GPIO.OUT)
-        GPIO.setup(self.DOUT, GPIO.IN)
+        gpio.setup(self.PD_SCK, gpio.OUT)
+        gpio.setup(self.DOUT, gpio.IN)
 
         # The value returned by the hx711 that corresponds to your reference
         # unit AFTER dividing by the SCALE.
@@ -54,8 +52,8 @@ class HX711:
         # Because a rising edge on HX711 Digital Serial Clock (PD_SCK).  We then
         # leave it held up and wait 100us.  After 60us the HX711 should be
         # powered down.
-        GPIO.output(self.PD_SCK, False)
-        GPIO.output(self.PD_SCK, True)
+        gpio.output(self.PD_SCK, False)
+        gpio.output(self.PD_SCK, True)
 
         time.sleep(0.0001)
 
@@ -70,7 +68,7 @@ class HX711:
         self.readLock.acquire()
 
         # Lower the HX711 Digital Serial Clock (PD_SCK) line.
-        GPIO.output(self.PD_SCK, False)
+        gpio.output(self.PD_SCK, False)
 
         # Wait 100 us for the HX711 to power back up.
         time.sleep(0.0001)
@@ -93,7 +91,7 @@ class HX711:
 
 
     def isReady(self):
-        return GPIO.input(self.DOUT) == GPIO.LOW
+        return gpio.input(self.DOUT) == gpio.LOW
 
 
     def setGain(self, gain):
@@ -109,7 +107,7 @@ class HX711:
         
         self.reset()
 
-        GPIO.output(self.PD_SCK, False)
+        gpio.output(self.PD_SCK, False)
 
         # Read out a set of raw bytes and throw it away.
         self.readRawBytes()
@@ -154,9 +152,9 @@ class HX711:
        # Clock HX711 Digital Serial Clock (PD_SCK).  DOUT will be
        # ready 1us after PD_SCK rising edge, so we sample after
        # lowering PD_SCL, when we know DOUT will be stable.
-       GPIO.output(self.PD_SCK, True)
-       GPIO.output(self.PD_SCK, False)
-       bitValue = GPIO.input(self.DOUT)
+       gpio.output(self.PD_SCK, True)
+       gpio.output(self.PD_SCK, False)
+       bitValue = gpio.input(self.DOUT)
 
        # Convert Boolean to int and return it.
        return int(bitValue)
@@ -259,12 +257,12 @@ class HX711:
     
     def enableReadyCallback(self, paramCallback=None):
         self.paramCallback = paramCallback if paramCallback is not None else self.paramCallback
-        GPIO.add_event_detect(self.DOUT, GPIO.FALLING, callback=self.readyCallback)
+        gpio.add_event_detect(self.DOUT, gpio.FALLING, callback=self.readyCallback)
         self.readyCallbackEnabled = True
 
     
     def disableReadyCallback(self):
-        GPIO.remove_event_detect(self.DOUT)
+        gpio.remove_event_detect(self.DOUT)
         self.paramCallback = None
         self.readyCallbackEnabled = False
 
@@ -463,5 +461,7 @@ class HX711:
             self.setChannel(currentChannel)
         
         return True
+    
+# EOF - hx711.py
     
 # EOF - hx711.py

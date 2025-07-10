@@ -49,7 +49,11 @@ class ThreadedCamera:
     @property
     def cap(self):
         return self.stream
-
+        
+    @property
+    def is_running(self):
+        """Property that returns the running state of the camera thread."""
+        return self.running
     def stop(self):
         """Stop the thread."""
         self.running = False

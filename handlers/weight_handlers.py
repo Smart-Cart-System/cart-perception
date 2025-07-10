@@ -44,7 +44,6 @@ class WeightHandlers:
         # Prompt user to scan barcode
         system.speaker.warning()
         print(f"WARNING: Item added without scanning barcode. Weight: {system.unscanned_weight:.2f}g")
-        print("Please scan the barcode of the added item!")
 
     @staticmethod
     def handle_weight_decrease(system, weight_diff, current_weight):

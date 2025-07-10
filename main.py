@@ -1,7 +1,6 @@
 import sys
 import asyncio
 import signal
-import RPi.GPIO as GPIO
 import logging
 from core.cart_system import CartSystem
 from core.config import Config
@@ -9,6 +8,7 @@ from hardware.led import LEDController
 from api.cart_websocket import CartWebSocket
 from enum import Enum, auto
 import time
+from hardware.gpio_manager import gpio
 
 # Set up logging
 logging.basicConfig(level=logging.INFO,
@@ -61,11 +61,13 @@ async def main():
         led_controller.turn_off()
         
         # Connect to WebSocket server and start listening for commands
+        logger.info(f"Connecting to WebSocket server: {websocket_client.server_url}")
         await websocket_client.connect()
         
     except Exception as e:
         logger.error(f"[CRITICAL ERROR] {e}")
-        GPIO.cleanup()
+        # Clean shutdown with controlled cleanup
+        await shutdown(None, None, None)
 
 async def shutdown(websocket_client, cart_system, led_controller):
     """Clean shutdown of all components."""
@@ -82,9 +84,10 @@ async def shutdown(websocket_client, cart_system, led_controller):
     # Turn off LED
     if led_controller:
         led_controller.turn_off()
+        led_controller.cleanup()
     
-    # Cleanup GPIO
-    GPIO.cleanup()
+    # Cleanup GPIO at the very end
+    gpio.cleanup()
     
     # Exit program
     asyncio.get_event_loop().stop()
@@ -95,7 +98,7 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\nProgram terminated by user. Cleaning up...")
-        GPIO.cleanup()
+        # Let asyncio handle cleanup through shutdown function
     except Exception as e:
         print(f"Fatal error: {e}")
-        GPIO.cleanup()
+        gpio.cleanup()

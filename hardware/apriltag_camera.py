@@ -32,7 +32,7 @@ class ThreadedAprilTagCamera:
         self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
         
         # Start thread
-        self.thread = threading.Thread(target=self._update, args=())
+        self.thread = threading.Thread(target=self._update, args=(), name="AprilTagCameraThread")
         self.thread.daemon = True
 
     def start(self):
@@ -96,6 +96,17 @@ class ThreadedAprilTagCamera:
         if self.thread.is_alive():
             self.thread.join()
         self.cap.release()
+
+    @property
+    def is_running(self):
+        """Property that returns the running state of the camera thread."""
+        return self.running
+
+    def stop(self):
+        """Stop the camera thread"""
+        self.running = False
+        if self.thread.is_alive():
+                self.thread.join()
 
 if __name__ == "__main__":
     camera = ThreadedAprilTagCamera()
