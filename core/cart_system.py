@@ -432,8 +432,8 @@ class CartSystem:
             self.camera2.stop()
             
         # Stop AprilTag camera if running
-        if hasattr(self, 'apriltag_camera') and self.apriltag_camera and self.apriltag_camera.is_running:
-            self.apriltag_camera.stop()
+        # if hasattr(self, 'apriltag_camera') and self.apriltag_camera and self.apriltag_camera.is_running:
+        #     self.apriltag_camera.stop()
         
         # Reset tracking components
         self.cart.clear_cart()
