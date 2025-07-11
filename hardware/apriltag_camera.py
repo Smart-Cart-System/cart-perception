@@ -109,7 +109,7 @@ class ThreadedAprilTagCamera:
                 self.thread.join()
 
 if __name__ == "__main__":
-    camera = ThreadedAprilTagCamera()
+    camera = ThreadedAprilTagCamera(camera_id="/dev/cam_navigation")
     camera.start()
     
     try:
@@ -118,7 +118,7 @@ if __name__ == "__main__":
             frame = camera.get_frame()
             
             if frame is not None:
-                # cv2.imshow("AprilTag Camera", frame)
+                cv2.imshow("AprilTag Camera", frame)
                 if tag_id is not None:
                     print(f"Detected Tag ID: {tag_id}")
                 else:

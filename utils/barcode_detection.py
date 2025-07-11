@@ -39,7 +39,7 @@ def detect_barcode(image):
         barcode_counts[barcode_number] = barcode_counts.get(barcode_number, 0) + 1
 
         # Print barcode only if detected 3 times or more
-        if barcode_counts[barcode_number] >= 3:
+        if barcode_counts[barcode_number] >= 2:
             print(f"Confirmed Barcode: {barcode_number}")
             barcode_counts[barcode_number] = 0
 

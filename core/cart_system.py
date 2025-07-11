@@ -233,9 +233,6 @@ class CartSystem:
             print(f"Weight change detected: {weight_diff:.2f}g")
             
             if weight_diff > 0:
-                # Item added - set LED action
-                self.led_action = "add"
-                self.led_action_start_time = time.time()
                 WeightHandlers.handle_weight_increase(self, weight_diff)
             else:
                 # Item removed - set LED action
@@ -341,6 +338,10 @@ class CartSystem:
                 # Green pulse for system startup
                 if not self.led.animation_running:
                     self.led.green(100)
+            elif self.led_action == "unscanned_add":
+                # blink red
+                if not self.led.animation_running:
+                    self.led.blink(self.led.red, intensity=100, blink_count=5, blink_speed=0.3)
             return
         
         # Reset action if duration expired

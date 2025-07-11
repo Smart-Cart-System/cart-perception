@@ -147,14 +147,14 @@ class CartWebSocket:
         """Handle generate_qr command"""
         logger.info("Preparing cart for QR code display")
         
-        # if self.led_controller:
-        #     self.led_controller.pulse(self.led_controller.white, pulse_speed=0.06 ,duration=self.QR_ACTIVE_DURATION)
+        if self.led_controller:
+            self.led_controller.pulse(self.led_controller.white, pulse_speed=0.06 ,duration=self.QR_ACTIVE_DURATION)
         # List all currently active threads
-        threads = threading.enumerate()
+        # threads = threading.enumerate()
 
-        # Print thread information
-        for thread in threads:
-            print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
+        # # Print thread information
+        # for thread in threads:
+        #     print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
 
 
     async def _handle_session_started(self, session_id):
@@ -170,19 +170,19 @@ class CartWebSocket:
             logger.info(f"API session ID set to {session_id}")
         
         # Stop any running LED animations
-        # if self.led_controller:
-        #     self.led_controller.stop_current_animation()
+        if self.led_controller:
+            self.led_controller.stop_current_animation()
 
         # Start the cart system
         if self.cart_system:
             await self._start_cart_system()
 
         # List all currently active threads
-        threads = threading.enumerate()
+        # threads = threading.enumerate()
 
-        # Print thread information
-        for thread in threads:
-            print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
+        # # Print thread information
+        # for thread in threads:
+        #     print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
 
 
     async def _handle_payment_created(self, payment_id):
@@ -197,16 +197,16 @@ class CartWebSocket:
             self.cart_system.enable_fraud_monitoring()
             
             # Set LED to loading animation
-            # if self.led_controller:
-            #     self.led_controller.stop_current_animation()
-            #     self.led_controller.start_loading_animation()
+            if self.led_controller:
+                self.led_controller.stop_current_animation()
+                self.led_controller.start_loading_animation()
     
         # List all currently active threads
-        threads = threading.enumerate()
+        # threads = threading.enumerate()
 
-        # Print thread information
-        for thread in threads:
-            print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
+        # # Print thread information
+        # for thread in threads:
+        #     print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
 
 
     async def _handle_end_session(self, session_id):
@@ -214,9 +214,9 @@ class CartWebSocket:
         logger.info(f"Ending session with ID: {session_id}")
         
         # Turn off LED
-        # if self.led_controller:
-        #     self.led_controller.stop_current_animation()
-        #     self.led_controller.turn_off()
+        if self.led_controller:
+            self.led_controller.stop_current_animation()
+            self.led_controller.turn_off()
         # Shutdown cart system
         if self.cart_system:
             await self._shutdown_cart_system()
@@ -224,11 +224,11 @@ class CartWebSocket:
         self.session_id = None
 
         # List all currently active threads
-        threads = threading.enumerate()
+        # threads = threading.enumerate()
 
-        # Print thread information
-        for thread in threads:
-            print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
+        # # Print thread information
+        # for thread in threads:
+        #     print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
 
 
     async def _start_cart_system(self):

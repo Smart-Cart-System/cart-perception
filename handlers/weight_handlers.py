@@ -1,6 +1,7 @@
 from core.cart_state import CartState
 from api.api_interaction import Ambigous
 from core.config import Config
+import time
 
 class WeightHandlers:
     """Handler methods for weight-related functionality."""
@@ -22,6 +23,8 @@ class WeightHandlers:
         """Handle a weight increase event."""
         # Case 1: Weight increase with pending barcode (adding product)
         if weight_diff > 0 and system.cart.pending_weight_change and system.cart.last_scanned_barcode:
+            system.led_action = "add"
+            system.led_action_start_time = time.time()
             system.api.add_item_to_cart(system.cart.last_scanned_barcode, weight_diff)
             system.cart.add_item(system.cart.last_scanned_barcode, weight_diff)
             system.speaker.item_added()
@@ -40,7 +43,7 @@ class WeightHandlers:
             system.api.report_fraud_warning(Ambigous.ADDED)
             system.state = CartState.UNSCANNED_ADDED_ITEMS
             system.unscanned_weight = weight_diff
-        
+
         # Prompt user to scan barcode
         system.speaker.warning()
         print(f"WARNING: Item added without scanning barcode. Weight: {system.unscanned_weight:.2f}g")
