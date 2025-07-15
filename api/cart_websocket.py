@@ -128,7 +128,13 @@ class CartWebSocket:
             return
         
         command_type = data.get('type')
-        command_data = data.get('data')
+        
+        # For session_started, the relevant data is the whole payload.
+        # For other commands, it's nested under the 'data' key.
+        if command_type == "session_started":
+            command_data = data
+        else:
+            command_data = data.get('data')
         
         logger.info(f"Processing command: {command_type}, data: {command_data}")
         
@@ -149,24 +155,23 @@ class CartWebSocket:
         
         if self.led_controller:
             self.led_controller.pulse(self.led_controller.white, pulse_speed=0.06 ,duration=self.QR_ACTIVE_DURATION)
-        # List all currently active threads
-        # threads = threading.enumerate()
-
-        # # Print thread information
-        # for thread in threads:
-        #     print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
 
 
-    async def _handle_session_started(self, session_id):
+    async def _handle_session_started(self, command_data):
         """Handle session_started command"""
+        if not isinstance(command_data, dict) or 'session_id' not in command_data:
+            logger.error(f"Invalid session_started data: {command_data}")
+            return
+
+        session_id = command_data.get('session_id')
         logger.info(f"Starting new session with ID: {session_id}")
         
         # Store the session ID
         self.session_id = session_id
-        
+
         # Set session ID in the API
-        if self.cart_system and hasattr(self.cart_system, 'api'):
-            self.cart_system.api.session_id = session_id
+        if self.cart_system and hasattr(self.cart_system, 'session_id'):
+            self.cart_system.session_id = session_id
             logger.info(f"API session ID set to {session_id}")
         
         # Stop any running LED animations
@@ -176,14 +181,6 @@ class CartWebSocket:
         # Start the cart system
         if self.cart_system:
             await self._start_cart_system()
-
-        # List all currently active threads
-        # threads = threading.enumerate()
-
-        # # Print thread information
-        # for thread in threads:
-        #     print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
-
 
     async def _handle_payment_created(self, payment_id):
         """Handle payment_created command"""
@@ -201,12 +198,6 @@ class CartWebSocket:
                 self.led_controller.stop_current_animation()
                 self.led_controller.start_loading_animation()
     
-        # List all currently active threads
-        # threads = threading.enumerate()
-
-        # # Print thread information
-        # for thread in threads:
-        #     print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
 
 
     async def _handle_end_session(self, session_id):
@@ -222,13 +213,6 @@ class CartWebSocket:
             await self._shutdown_cart_system()
         
         self.session_id = None
-
-        # List all currently active threads
-        # threads = threading.enumerate()
-
-        # # Print thread information
-        # for thread in threads:
-        #     print(f"Name: {thread.name}, ID: {thread.ident}, Alive: {thread.is_alive()}, Daemon: {thread.daemon}")
 
 
     async def _start_cart_system(self):

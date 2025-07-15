@@ -76,6 +76,8 @@ class CartSystem:
         self.running = False
         self.main_thread = None
 
+        self.error_camera = False
+
     def _init_cameras(self):
         """Initialize and configure both cameras."""
         # Use ThreadedCamera for improved performance
@@ -108,9 +110,17 @@ class CartSystem:
                 frame2 = self.camera2.read()
                 
                 if frame1 is None or frame2 is None:
-                    print("[WARNING] Could not read frames")
-                    continue
-                
+                    self.error_camera = True
+                    if self.error_camera:
+                        self.speaker.camera_error()
+                        print("[WARNING] Could not read frames")
+                        print("camera 1 status:", self.camera1.is_running)
+                        print("camera 2 status:", self.camera2.is_running)
+                        print("camera 1 opened:", self.camera1.isOpened())
+                        print("camera 2 opened:", self.camera2.isOpened())
+                        print("camera 1 error:", self.camera1.error)
+                        print("camera 2 error:", self.camera2.error)
+
                 # Process each camera frame
                 processed_frame1, barcode1 = self._process_camera_frame(frame1, self.camera1, 1)
                 processed_frame2, barcode2 = self._process_camera_frame(frame2, self.camera2, 2)
@@ -258,11 +268,13 @@ class CartSystem:
 
     def _check_scan_timeout(self, current_time):
         """Checks if the last scanned item should be cancelled due to a timeout."""
-        if self.cart.last_scanned_barcode and (self.state == CartState.NORMAL) and (current_time - self.last_scan_time > 5.0):
-            print(f"[INFO] Timeout for barcode {self.cart.last_scanned_barcode}. Cancelling scan.")
-            self.cart.last_scanned_barcode = None
-            self.last_scan_time = 0  # Reset timer
-            self.speaker.error()  # Notify user
+        # if self.cart.last_scanned_barcode and (self.state == CartState.NORMAL) and (current_time - self.last_scan_time > 5.0):
+        #     print(f"[INFO] Timeout for barcode {self.cart.last_scanned_barcode}. Cancelling scan.")
+        #     self.cart.last_scanned_barcode = None
+        #     self.last_scan_time = 0  # Reset timer
+        #     self.speaker.error()  # Notify user
+        # print("item scanned from cart:", self.cart.last_scanned_barcode)
+        x=5
 
     def _handle_keyboard_input(self, frame1, frame2):
         """Handle keyboard input, returns True if program should exit."""
